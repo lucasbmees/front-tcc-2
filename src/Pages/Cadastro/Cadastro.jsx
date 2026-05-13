@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import toast, { Toaster } from 'react-hot-toast';
 import styles from './Cadastro.module.css';
 import logo from '../../assets/logo.png';
+import { apiRequest } from '../../services/api';
 
 function Cadastro() {
   const navigate = useNavigate();
@@ -37,7 +38,7 @@ function Cadastro() {
 
   try {
     // Chamada usando a rota relativa (o Proxy do Vite completa para http://localhost:5153)
-    const response = await fetch('/api/auth/register', {
+    const response = await apiRequest('/api/auth/register', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

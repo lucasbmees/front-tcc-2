@@ -7,24 +7,25 @@ import {
 } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 import styles from './Ideia.module.css';
+import { apiRequest } from '../../services/api';
 
 function Ideia() {
   const { id } = useParams();
   const navigate = useNavigate();
 
-  const [ideia, setIdeia]           = useState(null);
-  const [loading, setLoading]       = useState(true);
-  const [erro, setErro]             = useState(null);
-  const [showProposal, setShowProposal]   = useState(false);
-  const [proposalSent, setProposalSent]   = useState(false);
+  const [ideia, setIdeia]                     = useState(null);
+  const [loading, setLoading]                 = useState(true);
+  const [erro, setErro]                       = useState(null);
+  const [showProposal, setShowProposal]       = useState(false);
+  const [proposalSent, setProposalSent]       = useState(false);
   const [sendingProposal, setSendingProposal] = useState(false);
-  const [proposalData, setProposalData]   = useState({ valor: '', fatia: '', mensagem: '' });
+  const [proposalData, setProposalData]       = useState({ valor: '', fatia: '', mensagem: '' });
 
   useEffect(() => {
     const fetchIdeia = async () => {
       const token = localStorage.getItem('token');
       try {
-        const response = await fetch(`/api/ideias/${id}`, {
+        const response = await apiRequest(`/api/ideias/${id}`, {
           headers: {
             Authorization: token ? `Bearer ${token}` : '',
             'Content-Type': 'application/json',
@@ -41,9 +42,43 @@ function Ideia() {
     fetchIdeia();
   }, [id]);
 
+  // Decodifica o usuarioId do JWT sem biblioteca externa
+  const getUsuarioId = () => {
+    const token = localStorage.getItem('token');
+    if (!token) return null;
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      return (
+        payload.sub ??
+        payload.nameid ??
+        payload['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier'] ??
+        null
+      );
+    } catch {
+      return null;
+    }
+  };
+
+  // ── PEÇA-CHAVE: dispara notificação para o dono via POST /api/notificacoes ──
+  const dispararNotificacaoDono = async (token, donoId, ideiaId, nomeIdeia) => {
+  try {
+    await apiRequest('/api/notificacoes/disparar', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        usuarioId: Number(donoId),
+        tipoId:    1,
+        // ← ideiaId explícito no formato "ideia #3" para o Navbar extrair corretamente
+        mensagem:  `Você recebeu uma nova proposta na ideia #${ideiaId} - "${nomeIdeia}"!`,
+      }),
+    });
+  } catch {
+    console.warn('Não foi possível disparar notificação para o dono da ideia.');
+  }
+};
+
   const handleProposalSubmit = async (e) => {
     e.preventDefault();
-
     const token = localStorage.getItem('token');
     if (!token) { toast.error('Você precisa estar logado.'); return; }
 
@@ -51,8 +86,7 @@ function Ideia() {
     const toastId = toast.loading('Enviando proposta...');
 
     try {
-      // Endpoint correto: POST /api/ideias/{ideiaId}/propostas
-      const response = await fetch(`/api/ideias/${id}/propostas`, {
+      const response = await apiRequest(`/api/ideias/${id}/propostas`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -67,6 +101,13 @@ function Ideia() {
 
       if (response.ok) {
         toast.success('Proposta enviada com sucesso!', { id: toastId });
+
+        // ── Notifica o dono da ideia ──────────────────────────────────
+        const donoId    = ideia?.idaUsuarioId ?? ideia?.usuarioId;
+        const nomeIdeia = ideia?.idaNome ?? `Ideia #${id}`;
+        if (donoId) await dispararNotificacaoDono(token, donoId, nomeIdeia);
+        // ─────────────────────────────────────────────────────────────
+
         setProposalSent(true);
         setTimeout(() => {
           setShowProposal(false);
@@ -91,6 +132,10 @@ function Ideia() {
     setProposalData((prev) => ({ ...prev, [name]: value }));
   };
 
+  const usuarioLogadoId = String(getUsuarioId() ?? '');
+  const donoIdeia       = String(ideia?.idaUsuarioId ?? ideia?.usuarioId ?? '');
+  const isOwner         = usuarioLogadoId && donoIdeia && usuarioLogadoId === donoIdeia;
+
   if (loading) return (
     <div className={styles.page}>
       <div className={styles.container} style={{ textAlign: 'center', padding: '80px 40px' }}>
@@ -113,18 +158,18 @@ function Ideia() {
     </div>
   );
 
-  const nome      = ideia.idaNome;
-  const categoria = ideia.categoriaNome;
+  const nome       = ideia.idaNome;
+  const categoria  = ideia.categoriaNome;
   const statusNome = ideia.statusNome;
-  const statusId  = ideia.idaStatusId;
-  const info      = ideia.info ?? {};
-  const descricao = info.idaInfoDescricao;
-  const imagem    = info.idaInfoImagem;
-  const fatia     = info.idaInfoFatia;
-  const linkVideo = info.idaInfoLinkVideo;
-  const cnpj      = info.idaInfoCnpj;
+  const statusId   = ideia.idaStatusId;
+  const info       = ideia.info ?? {};
+  const descricao  = info.idaInfoDescricao;
+  const imagem     = info.idaInfoImagem;
+  const fatia      = info.idaInfoFatia;
+  const linkVideo  = info.idaInfoLinkVideo;
+  const cnpj       = info.idaInfoCnpj;
   const documentos = ideia.documentos ?? [];
-  const isAtivo   = statusId === 1 || String(statusNome ?? '').toLowerCase().includes('ativ');
+  const isAtivo    = statusId === 1 || String(statusNome ?? '').toLowerCase().includes('ativ');
 
   return (
     <div className={styles.page}>
@@ -207,11 +252,26 @@ function Ideia() {
         )}
 
         <div className={styles.actionsArea}>
-          <div className={styles.actionCard}>
-            <div className={styles.cardHeader}><MessageSquare size={22} color="#0d47a1" /><h3>Fazer Proposta</h3></div>
-            <p>Demonstre seu interesse e envie uma proposta de investimento ao empreendedor.</p>
-            <button className={styles.buttonPrimary} onClick={() => setShowProposal(true)}>Enviar Proposta</button>
-          </div>
+          {/* Investidor vê botão de enviar proposta */}
+          {!isOwner && (
+            <div className={styles.actionCard}>
+              <div className={styles.cardHeader}><MessageSquare size={22} color="#0d47a1" /><h3>Fazer Proposta</h3></div>
+              <p>Demonstre seu interesse e envie uma proposta de investimento ao empreendedor.</p>
+              <button className={styles.buttonPrimary} onClick={() => setShowProposal(true)}>Enviar Proposta</button>
+            </div>
+          )}
+
+          {/* Dono vê botão de ver propostas recebidas */}
+          {isOwner && (
+            <div className={styles.actionCard}>
+              <div className={styles.cardHeader}><MessageSquare size={22} color="#0d47a1" /><h3>Propostas Recebidas</h3></div>
+              <p>Veja e responda as propostas de investidores para esta ideia.</p>
+              <button className={styles.buttonPrimary} onClick={() => navigate(`/propostas/${id}`)}>
+                Ver Propostas
+              </button>
+            </div>
+          )}
+
           <div className={styles.actionCard}>
             <div className={styles.cardHeader}><PieChart size={22} color="#0d47a1" /><h3>Participação Ofertada</h3></div>
             <p>O empreendedor está oferecendo uma fatia da empresa em troca de investimento.</p>
@@ -222,45 +282,42 @@ function Ideia() {
         </div>
       </div>
 
-      {/* Modal proposta */}
       <AnimatePresence>
-        {showProposal && (
+        {showProposal && !isOwner && (
           <motion.div className={styles.modalOverlay} initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}
             onClick={(e) => e.target === e.currentTarget && setShowProposal(false)}>
             <motion.div className={styles.modalContent} initial={{ scale:0.9, opacity:0 }} animate={{ scale:1, opacity:1 }} exit={{ scale:0.9, opacity:0 }}>
               <button className={styles.closeModal} onClick={() => setShowProposal(false)}><X size={18} /></button>
 
               {proposalSent ? (
-                <div className={styles.successState}>
-                  <CheckCircle size={56} color="#10b981" />
-                  <h2>Proposta Enviada!</h2>
-                  <p>Sua oferta foi encaminhada ao empreendedor. Você será notificado sobre o aceite.</p>
+                <div style={{ textAlign:'center', padding:'40px 20px' }}>
+                  <CheckCircle size={56} color="#22c55e" />
+                  <h3 style={{ marginTop:16, color:'#15803d' }}>Proposta enviada!</h3>
+                  <p style={{ color:'#64748b', marginTop:8 }}>O empreendedor foi notificado e irá analisar sua proposta em breve.</p>
                 </div>
               ) : (
                 <>
-                  <div className={styles.modalHeader}>
-                    <PieChart size={32} />
-                    <h2>Fazer Proposta</h2>
-                    <p>Defina os termos do seu investimento para <strong>{nome}</strong>.</p>
-                  </div>
-                  <form className={styles.proposalForm} onSubmit={handleProposalSubmit}>
-                    <div className={styles.formRow}>
-                      <div className={styles.formGroup}>
-                        <label>Valor (R$)</label>
-                        <input type="number" name="valor" placeholder="Ex: 50000" value={proposalData.valor} onChange={handleInputChange} required />
-                      </div>
-                      <div className={styles.formGroup}>
-                        <label>Fatia desejada (%)</label>
-                        <input type="number" name="fatia" placeholder="Ex: 10" value={proposalData.fatia} onChange={handleInputChange} required />
-                      </div>
+                  <h2 style={{ marginBottom:20, color:'#0d47a1', display:'flex', alignItems:'center', gap:10 }}>
+                    <Send size={22} /> Enviar Proposta
+                  </h2>
+                  <form onSubmit={handleProposalSubmit} style={{ display:'flex', flexDirection:'column', gap:16 }}>
+                    <div>
+                      <label style={{ display:'block', marginBottom:6, fontWeight:600, color:'#1e293b', fontSize:14 }}>Valor do Investimento (R$)</label>
+                      <input type="number" name="valor" value={proposalData.valor} onChange={handleInputChange} required min="0" step="0.01" placeholder="Ex: 50000"
+                        style={{ width:'100%', padding:'10px 14px', border:'1.5px solid #e2e8f0', borderRadius:10, fontSize:14, outline:'none' }} />
                     </div>
-                    <div className={styles.formGroup}>
-                      <label>Mensagem</label>
-                      <textarea name="mensagem" placeholder="Apresente-se e explique seu interesse..." value={proposalData.mensagem} onChange={handleInputChange} required />
+                    <div>
+                      <label style={{ display:'block', marginBottom:6, fontWeight:600, color:'#1e293b', fontSize:14 }}>Fatia Pretendida (%)</label>
+                      <input type="number" name="fatia" value={proposalData.fatia} onChange={handleInputChange} required min="0" max="100" step="0.1" placeholder="Ex: 15"
+                        style={{ width:'100%', padding:'10px 14px', border:'1.5px solid #e2e8f0', borderRadius:10, fontSize:14, outline:'none' }} />
                     </div>
-                    <button type="submit" className={styles.submitBtn} disabled={sendingProposal}>
-                      <Send size={18} />
-                      {sendingProposal ? 'Enviando...' : 'Enviar Proposta'}
+                    <div>
+                      <label style={{ display:'block', marginBottom:6, fontWeight:600, color:'#1e293b', fontSize:14 }}>Mensagem</label>
+                      <textarea name="mensagem" value={proposalData.mensagem} onChange={handleInputChange} rows={4} placeholder="Descreva sua proposta e motivação..."
+                        style={{ width:'100%', padding:'10px 14px', border:'1.5px solid #e2e8f0', borderRadius:10, fontSize:14, resize:'vertical', outline:'none', fontFamily:'inherit' }} />
+                    </div>
+                    <button type="submit" disabled={sendingProposal} className={styles.buttonPrimary} style={{ marginTop:8 }}>
+                      {sendingProposal ? 'Enviando...' : <><Send size={16} /> Enviar Proposta</>}
                     </button>
                   </form>
                 </>

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Plus, Briefcase, Rocket } from 'lucide-react';
 import IdeiaCard from '../../Components/IdeiaCard/IdeiaCard';
 import styles from './MinhasIdeias.module.css';
+import { apiRequest } from '../../services/api';
 
 function MinhasIdeias() {
   const [minhasIdeias, setMinhasIdeias] = useState([]);
@@ -32,7 +33,7 @@ function MinhasIdeias() {
       }
 
       try {
-        const response = await fetch('/api/ideias', {
+        const response = await apiRequest('/api/ideias', {
           method: 'GET',
           headers: {
             Authorization: `Bearer ${token}`,

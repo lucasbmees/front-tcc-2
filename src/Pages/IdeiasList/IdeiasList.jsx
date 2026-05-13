@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Lightbulb, Search, Compass, Rocket } from 'lucide-react';
 import IdeiaCard from '../../Components/IdeiaCard/IdeiaCard';
 import styles from './IdeiasList.module.css';
+import { apiRequest } from '../../services/api';
 
 function IdeiasList() {
   const [ideias, setIdeias] = useState([]);
@@ -16,7 +17,7 @@ function IdeiasList() {
       const token = localStorage.getItem('token');
 
       try {
-        const response = await fetch('/api/ideias', {
+        const response = await apiRequest('/api/ideias', {
           method: 'GET',
           headers: {
             Authorization: token ? `Bearer ${token}` : '',

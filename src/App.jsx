@@ -12,6 +12,8 @@ import Ideia from './Pages/Ideia/Ideia.jsx';
 import EditarIdeia from './Pages/EditarIdeia/EditarIdeia.jsx';
 import Propostas from './Pages/Propostas/Propostas.jsx';
 import CriarIdeia from './Pages/CriarIdeia/CriarIdeia.jsx'; // 👈 importado
+import ResponderProposta from './Pages/ResponderProposta/ResponderProposta';
+import MinhasPropostas from './Pages/MinhasPropostas/MinhasPropostas';
 import './App.css';
 
 
@@ -47,6 +49,8 @@ function App() {
           <Route path="/editar-ideia/:id" element={<EditarIdeia />} />
           <Route path="/propostas/:ideiaId" element={<Propostas />} />
           <Route path="/criar-ideia" element={<CriarIdeia />} /> {/* 👈 adicionado */}
+          <Route path="/responder-proposta/:ideiaId" element={<ResponderProposta />} />
+          <Route path="/minhas-propostas" element={<MinhasPropostas />} />
         </Routes>
       </Layout>
     </Router>

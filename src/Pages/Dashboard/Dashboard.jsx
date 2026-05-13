@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Compass, Star, ChevronRight, Rocket } from 'lucide-react';
 import IdeiaCard from '../../Components/IdeiaCard/IdeiaCard';
 import styles from './Dashboard.module.css';
+import { apiRequest } from '../../services/api';
 
 function Dashboard() {
   const [destaques, setDestaques] = useState([]);
@@ -14,7 +15,7 @@ function Dashboard() {
       const token = localStorage.getItem('token');
 
       try {
-        const response = await fetch('/api/ideias', {
+        const response = await apiRequest('/api/ideias', {
           method: 'GET',
           headers: {
             Authorization: token ? `Bearer ${token}` : '',

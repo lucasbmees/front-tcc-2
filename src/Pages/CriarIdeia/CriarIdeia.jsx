@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { Lightbulb, ArrowLeft, Send } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 import styles from './CriarIdeia.module.css';
+import { apiRequest } from '../../services/api';
 
 function CriarIdeia() {
   const navigate = useNavigate();
@@ -55,7 +56,7 @@ function CriarIdeia() {
     setLoading(true);
 
     try {
-      const response = await fetch('/api/ideias', {
+      const response = await apiRequest('/api/ideias', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

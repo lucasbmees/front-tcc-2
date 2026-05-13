@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 import styles from './Perfil.module.css';
+import { apiRequest } from '../../services/api';
 
 function Perfil() {
   const [isEditing, setIsEditing] = useState(false);
@@ -44,7 +45,7 @@ function Perfil() {
       }
 
       try {
-        const response = await fetch(`/api/usuarios/${userId}`, {
+        const response = await apiRequest(`/api/usuarios/${userId}`, {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -107,7 +108,7 @@ function Perfil() {
 
     const toastId = toast.loading('A guardar alterações...');
     try {
-      const response = await fetch(`/api/usuarios/${userId}`, {
+      const response = await apiRequest(`/api/usuarios/${userId}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,

@@ -4,6 +4,8 @@ import { motion } from "framer-motion";
 import toast, { Toaster } from "react-hot-toast";
 import styles from "./Login.module.css";
 import logo from "../../assets/logo.png";
+import { apiRequest } from '../../services/api';
+
 
 function Login() {
   const navigate = useNavigate();
@@ -37,7 +39,7 @@ function Login() {
 
       try {
         // Usando a porta 5153 que localizámos no seu terminal
-        const response = await fetch("/api/auth/login", {
+        const response = await apiRequest("/api/auth/login", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
