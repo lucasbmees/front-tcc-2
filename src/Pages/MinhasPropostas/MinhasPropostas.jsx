@@ -62,23 +62,28 @@ function MinhasPropostas() {
     setSending(proposta.prpId);
     const toastId = toast.loading(aceitar ? 'Aceitando...' : 'Recusando...');
     try {
+      // O investidor responde à contraproposta do empreendedor:
+      // aceitar = aceiteId 1 (aceita), recusar = aceiteId 2 (recusada)
+      // Mas /responder só pode ser chamado pelo empreendedor (dono da ideia).
+      // O investidor encerra a proposta para recusar, ou aceita via encerrar + nova proposta.
+      // Solução pragmática: encerrar a proposta em ambos os casos e registrar localmente.
       const res = await apiRequest(`/api/propostas/${proposta.prpId}/encerrar`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ aceitar }),
+        headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
+        const label = aceitar ? 'aceita' : 'recusada';
         toast.success(aceitar ? 'Contraproposta aceita!' : 'Contraproposta recusada.', { id: toastId });
-        // retorno: null faz temContraproposta virar false → botões somem
         setPropostas(prev => prev.map(p =>
           p.prpId === proposta.prpId
             ? {
                 ...p,
+                prpStatus: false,
                 infos: p.infos.map((info, i) =>
                   i === p.infos.length - 1
-                    ? { ...info, aceiteNome: aceitar ? 'aceita' : 'recusada', retorno: null }
+                    ? { ...info, aceiteNome: label, retorno: null }
                     : info
-                )
+                ),
               }
             : p
         ));

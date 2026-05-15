@@ -1,23 +1,45 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Lightbulb, Search, Compass, Rocket } from 'lucide-react';
+import { Lightbulb, Search, Compass, Rocket, Filter, X } from 'lucide-react';
 import IdeiaCard from '../../Components/IdeiaCard/IdeiaCard';
 import styles from './IdeiasList.module.css';
 import { apiRequest } from '../../services/api';
 
+const CATEGORIAS = [
+  { id: 1,  nome: 'Tecnologia'      },
+  { id: 2,  nome: 'Agro'            },
+  { id: 3,  nome: 'Inovação'        },
+  { id: 4,  nome: 'Infraestrutura'  },
+  { id: 5,  nome: 'Moda'            },
+  { id: 6,  nome: 'Automobilismo'   },
+  { id: 7,  nome: 'Sustentabilidade'},
+  { id: 8,  nome: 'Comodidade'      },
+  { id: 9,  nome: 'Lazer'           },
+  { id: 10, nome: 'Uso Diário'      },
+  { id: 11, nome: 'Moradia'         },
+  { id: 12, nome: 'Energia'         },
+  { id: 13, nome: 'Marítimo'        },
+  { id: 14, nome: 'Aeronáutico'     },
+  { id: 15, nome: 'Outros'          },
+];
+
 function IdeiasList() {
-  const [ideias, setIdeias] = useState([]);
+  const [ideias, setIdeias]         = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [erro, setErro] = useState(null);
+  const [categoriaId, setCategoriaId] = useState('');
+  const [loading, setLoading]       = useState(true);
+  const [erro, setErro]             = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
     const fetchIdeias = async () => {
       const token = localStorage.getItem('token');
+      setLoading(true);
+      setErro(null);
 
       try {
-        const response = await apiRequest('/api/ideias', {
+        const query = categoriaId ? `?categoriaId=${categoriaId}` : '';
+        const response = await apiRequest(`/api/ideias${query}`, {
           method: 'GET',
           headers: {
             Authorization: token ? `Bearer ${token}` : '',
@@ -29,8 +51,7 @@ function IdeiasList() {
           throw new Error(`Erro ${response.status}: ${response.statusText}`);
         }
 
-        const data = await response.json();
-        setIdeias(data);
+        setIdeias(await response.json());
       } catch (error) {
         console.error('Erro ao buscar ideias:', error);
         setErro(error.message);
@@ -40,12 +61,19 @@ function IdeiasList() {
     };
 
     fetchIdeias();
-  }, []);
+  }, [categoriaId]); // re-fetch sempre que a categoria mudar
 
-  // Filtra pelo nome correto da API: idaNome
+  // Filtra localmente por nome após o fetch por categoria
   const ideiasFiltradas = ideias.filter((ideia) =>
     (ideia.idaNome ?? '').toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const limparFiltros = () => {
+    setSearchTerm('');
+    setCategoriaId('');
+  };
+
+  const temFiltroAtivo = searchTerm || categoriaId;
 
   return (
     <div className={styles.page}>
@@ -65,7 +93,7 @@ function IdeiasList() {
           </div>
         </div>
 
-        {/* Barra de busca */}
+        {/* Barra de busca + filtro de categoria */}
         <div className={styles.toolbar}>
           <div className={styles.searchWrapper}>
             <Search size={20} className={styles.searchIcon} />
@@ -77,6 +105,26 @@ function IdeiasList() {
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
+
+          <div className={styles.filterWrapper}>
+            <Filter size={16} className={styles.filterIcon} />
+            <select
+              className={styles.filterSelect}
+              value={categoriaId}
+              onChange={(e) => setCategoriaId(e.target.value)}
+            >
+              <option value="">Todas as categorias</option>
+              {CATEGORIAS.map(c => (
+                <option key={c.id} value={c.id}>{c.nome}</option>
+              ))}
+            </select>
+          </div>
+
+          {temFiltroAtivo && (
+            <button className={styles.clearBtn} onClick={limparFiltros}>
+              <X size={14} /> Limpar
+            </button>
+          )}
         </div>
 
         {/* Loading */}
@@ -103,10 +151,15 @@ function IdeiasList() {
           <div className={styles.noResults}>
             <Lightbulb size={48} className={styles.noResultsIcon} />
             <p>
-              {searchTerm
-                ? `Nenhuma ideia encontrada para "${searchTerm}".`
+              {temFiltroAtivo
+                ? 'Nenhuma ideia encontrada com os filtros aplicados.'
                 : 'Nenhuma ideia cadastrada ainda.'}
             </p>
+            {temFiltroAtivo && (
+              <button className={styles.clearBtn} onClick={limparFiltros} style={{ marginTop: 12 }}>
+                <X size={14} /> Limpar filtros
+              </button>
+            )}
           </div>
         )}
 

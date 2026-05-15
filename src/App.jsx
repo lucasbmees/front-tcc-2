@@ -1,5 +1,6 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
+import { Toaster } from 'react-hot-toast';
 import Navbar from './Components/Navbar';
 import Dashboard from './Pages/Dashboard/Dashboard.jsx';
 import Login from './Pages/Login/Login.jsx';
@@ -36,6 +37,15 @@ function Layout({ children }) {
 function App() {
   return (
     <Router>
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          duration: 3500,
+          success: { duration: 3000 },
+          error:   { duration: 4000 },
+          loading: { duration: Infinity },
+        }}
+      />
       <Layout>
         <Routes>
           <Route path="/" element={<Dashboard />} />

@@ -56,19 +56,20 @@ function Perfil() {
         if (response.ok) {
           const data = await response.json();
 
-          // Mapeia os campos da API (prefixo "usu") para o formData
+          // Contrato real: UserDetailsResponse
+          // { usuId, usuCpf, usuEmail, usuTelefone, usuNome, usuSobrenome, cargo, perfil: { descricao, cep, dataNasc, linkRedes } }
           setFormData({
-            nome:             data.usuNome            || '',
-            sobrenome:        data.usuSobrenome       || '',
-            email:            data.usuEmail           || '',
-            telefone:         data.usuTelefone        || '',
-            descricao:        data.perfil             || '',
-            cep:              data.usuCep             || '',
-            dataNascimento:   data.usuDataNascimento
-                                ? data.usuDataNascimento.split('T')[0]
+            nome:             data.usuNome                          || '',
+            sobrenome:        data.usuSobrenome                     || '',
+            email:            data.usuEmail                         || '',
+            telefone:         data.usuTelefone                      || '',
+            descricao:        data.perfil?.descricao                || '',
+            cep:              data.perfil?.cep                      || '',
+            dataNascimento:   data.perfil?.dataNasc
+                                ? data.perfil.dataNasc.split('T')[0]
                                 : '',
-            linkRedesSociais: data.usuLinkRedesSociais || '',
-            cargoNome:        data.cargo              || '',
+            linkRedesSociais: data.perfil?.linkRedes                || '',
+            cargoNome:        data.cargo                            || '',
           });
         } else {
           toast.error('Não foi possível carregar os dados do perfil.');
@@ -114,18 +115,20 @@ function Perfil() {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        // Mapeia de volta para os nomes que a API espera
+        // Contrato real: UpdateUserRequest
+        // { nome, sobrenome, telefone, inativar, perfil: { descricao, cep, dataNasc, linkRedes } }
         body: JSON.stringify({
-  request: {
-    usuNome:             formData.nome,
-    usuSobrenome:        formData.sobrenome,
-    usuTelefone:         formData.telefone,
-    usuCep:              formData.cep,
-    usuDataNascimento:   formData.dataNascimento || null,
-    usuLinkRedesSociais: formData.linkRedesSociais,
-    perfil:              formData.descricao,
-  }
-}),
+          nome:      formData.nome      || null,
+          sobrenome: formData.sobrenome || null,
+          telefone:  formData.telefone  || null,
+          inativar:  null,
+          perfil: {
+            descricao: formData.descricao        || null,
+            cep:       formData.cep              || null,
+            dataNasc:  formData.dataNascimento   || null,
+            linkRedes: formData.linkRedesSociais || null,
+          },
+        }),
       });
 
       if (response.ok) {

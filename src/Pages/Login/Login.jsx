@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import toast, { Toaster } from "react-hot-toast";
+import toast from "react-hot-toast";
 import styles from "./Login.module.css";
 import logo from "../../assets/logo.png";
 import { apiRequest } from '../../services/api';
@@ -81,7 +81,6 @@ function Login() {
 
   return (
     <div className={styles.page}>
-      <Toaster position="top-center" />
       <motion.div
         className={styles.container}
         initial={{ opacity: 0, scale: 0.9 }}
