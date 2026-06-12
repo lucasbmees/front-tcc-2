@@ -28,11 +28,114 @@
 
 .header {
   margin-bottom: 40px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 20px;
 }
 
-.headerIcon {
-  color: #0d47a1;
-  /* Removido margin-bottom antigo */
+.welcomeText h1 {
+  font-size: 32px;
+  color: #1e293b;
+  margin: 8px 0;
+}
+
+.btnAction {
+  background: #0d47a1;
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 12px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 4px 12px rgba(13, 71, 161, 0.2);
+}
+
+.btnAction:hover {
+  background: #0a3d8a;
+  transform: translateY(-2px);
+}
+
+.statsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 24px;
+  margin-bottom: 40px;
+}
+
+.statCard {
+  background: white;
+  padding: 20px;
+  border-radius: 20px;
+  border: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.statCard:hover {
+  border-color: #0d47a1;
+  box-shadow: 0 10px 20px rgba(0,0,0,0.04);
+}
+
+.statIcon {
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.statInfo {
+  flex: 1;
+}
+
+.statInfo h3 {
+  font-size: 24px;
+  margin: 0;
+  color: #1e293b;
+}
+
+.statInfo span {
+  font-size: 13px;
+  color: #64748b;
+}
+
+.emptyState {
+  text-align: center;
+  padding: 60px 0;
+  color: #94a3b8;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.loadingIcon {
+  animation: float 2s infinite ease-in-out;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+.btnSecondary {
+  background: white;
+  border: 1px solid #e2e8f0;
+  color: #1e293b;
+  padding: 10px 20px;
+  border-radius: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 10px;
 }
 
 .highlight {

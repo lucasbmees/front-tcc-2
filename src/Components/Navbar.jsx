@@ -1,19 +1,19 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Bell, User, LogOut, Menu, X } from 'lucide-react';
-import toast, { Toaster } from 'react-hot-toast';
+import { Bell, LogOut, Menu, X } from 'lucide-react';
+import toast from 'react-hot-toast';
+import { getToken, getRoleFromToken } from '../utils/auth';
 import styles from './Navbar.module.css';
 import logo from '../assets/logo.png';
 
 function Navbar() {
   const [showNotifications, setShowNotifications] = useState(false);
-  const [mobileMenuOpen, setMobileMenuOpen]       = useState(false);
-  const [notificacoes, setNotificacoes]           = useState([]);
-  const [propostasNtf, setPropostasNtf]           = useState([]);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [notificacoes, setNotificacoes] = useState([]);
   const navigate = useNavigate();
+  const MotionDiv = motion.div;
 
-  // BLOQUEIO DE SCROLL: Impede o fundo de rolar quando o menu mobile está aberto
   useEffect(() => {
     if (mobileMenuOpen) {
       document.body.style.overflow = 'hidden';
@@ -23,96 +23,45 @@ function Navbar() {
     return () => { document.body.style.overflow = 'unset'; };
   }, [mobileMenuOpen]);
 
-  const getToken = () => localStorage.getItem('token');
-
-  // SUA LÓGICA ORIGINAL DE FETCH (SEM ALTERAÇÕES)
   const fetchTudo = useCallback(async () => {
     const token = getToken();
     if (!token) return;
 
-    const [resNtf, resPrpEnviadas] = await Promise.allSettled([
-      fetch('/api/notificacoes/minhas', { headers: { Authorization: `Bearer ${token}` } }),
-      fetch('/api/propostas/minhas',    { headers: { Authorization: `Bearer ${token}` } }),
-    ]);
+    const resNtf = await fetch('/api/notificacoes/minhas', {
+      headers: { Authorization: `Bearer ${token}` },
+    });
 
-    if (resNtf.status === 'fulfilled' && resNtf.value.ok) {
-      const raw = await resNtf.value.json();
-      const normalizado = raw.map(n => ({
-        ntfId:      n.NtfId      ?? n.ntfId,
-        tipoId:     n.TipoId     ?? n.tipoId,
-        tipoNome:   n.TipoNome   ?? n.tipoNome,
-        mensagem:   n.Mensagem   ?? n.mensagem   ?? '(sem mensagem)',
-        lida:       n.Lida       ?? n.lida        ?? false,
-        createDate: n.CreateDate ?? n.createDate,
-      }));
+    if (resNtf.ok) {
+      const raw = await resNtf.json();
+      const normalizado = raw
+        .map(n => ({
+          ntfId:      n.NtfId      ?? n.ntfId,
+          tipoId:     n.TipoId     ?? n.tipoId,
+          tipoNome:   n.TipoNome   ?? n.tipoNome,
+          mensagem:   n.Mensagem   ?? n.mensagem   ?? '(sem mensagem)',
+          lida:       n.Lida       ?? n.lida       ?? false,
+          createDate: n.CreateDate ?? n.createDate,
+        }))
+        // Remove notificações do tipo "prp recebida" (tipoId 5) — redundante para o empreendedor
+        .filter(n => n.tipoId !== 5);
       setNotificacoes(normalizado);
     }
-
-    const notifExtras = [];
-    if (resPrpEnviadas.status === 'fulfilled' && resPrpEnviadas.value.ok) {
-      const enviadas = await resPrpEnviadas.value.json();
-      enviadas.forEach(p => {
-        const prpId   = p.PrpId      ?? p.prpId;
-        const ideiaId = p.PrpIdeiaId ?? p.prpIdeiaId;
-        const infos   = p.Infos      ?? p.infos ?? [];
-        const ultimo  = infos[infos.length - 1] ?? {};
-        const aceite  = (ultimo.AceiteNome ?? ultimo.aceiteNome ?? '').toLowerCase();
-        const retorno = ultimo.Retorno ?? ultimo.retorno;
-
-        if (aceite === 'pendente' && retorno) {
-          notifExtras.push({
-            _tipo:      'contraproposta',
-            ntfId:      `prp-counter-${prpId}`,
-            prpId,
-            prpIdeiaId: ideiaId,
-            mensagem:   `O empreendedor fez uma contraproposta na ideia #${ideiaId}!`,
-            lida:       false,
-            createDate: ultimo.CreateDate ?? ultimo.createDate,
-          });
-        }
-        else if (aceite && aceite !== 'pendente') {
-          notifExtras.push({
-            _tipo:      'proposta-respondida',
-            ntfId:      `prp-env-${prpId}`,
-            prpIdeiaId: ideiaId,
-            mensagem:   `Sua proposta para a ideia #${ideiaId} foi ${aceite}.`,
-            lida:       false,
-            createDate: ultimo.CreateDate ?? ultimo.createDate,
-          });
-        }
-      });
-    }
-
-    setPropostasNtf(notifExtras);
   }, []);
 
   useEffect(() => {
-    fetchTudo();
+    const timeoutId = setTimeout(fetchTudo, 0);
     const interval = setInterval(fetchTudo, 30000);
-    return () => clearInterval(interval);
+    return () => {
+      clearTimeout(timeoutId);
+      clearInterval(interval);
+    };
   }, [fetchTudo]);
 
-  const todasNtf = [
-    ...notificacoes.map(n => ({ ...n, _tipo: 'notificacao' })),
-    ...propostasNtf,
-  ];
+  const temNaoLidas = notificacoes.some(n => !n.lida);
 
-  const temNaoLidas = todasNtf.some(n => !n.lida);
-
-  // SUA LÓGICA ORIGINAL DE CLIQUE (RESTABELECIDA)
   const handleNotificationClick = async (notificacao) => {
     const token = getToken();
     setShowNotifications(false);
-
-    if (notificacao._tipo === 'contraproposta') {
-      navigate('/minhas-propostas');
-      return;
-    }
-
-    if (notificacao._tipo === 'proposta-respondida') {
-      navigate('/minhas-propostas');
-      return;
-    }
 
     try {
       if (notificacao.ntfId) {
@@ -128,15 +77,23 @@ function Navbar() {
         });
       }
 
-      const ideiaId =
-        (notificacao.mensagem ?? '').match(/ideia\s*#(\d+)/i)?.[1] ??
-        (notificacao.mensagem ?? '').match(/\d+/)?.[0];
+      const tipoId   = notificacao.tipoId;
+      const tipoNome = (notificacao.tipoNome ?? '').toLowerCase();
 
+      // Notificações do investidor (aceita/recusada/contraproposta) → minhas-propostas
+      if ([1, 2, 6].includes(tipoId) || tipoNome.startsWith('prp')) {
+        navigate('/minhas-propostas');
+        return;
+      }
+
+      // Alerta com #ID na mensagem (ex: contraproposta do empreendedor) → responder-proposta
+      const ideiaId = (notificacao.mensagem ?? '').match(/ideia\s*#(\d+)/i)?.[1];
       if (ideiaId) {
         navigate(`/responder-proposta/${ideiaId}`);
-      } else {
-        toast.error('Não foi possível identificar a ideia desta notificação.');
+        return;
       }
+
+      navigate('/dashboard');
     } catch {
       toast.error('Erro de conexão.');
     }
@@ -148,22 +105,27 @@ function Navbar() {
   };
 
   const navLinks = [
-    { to: '/',               label: 'Home'            },
-    { to: '/ideias',         label: 'Ideias'          },
-    { to: '/minhas-ideias',  label: 'Minhas Ideias'   },
+    { to: '/dashboard',        label: 'Home' },
+    { to: '/ideias',           label: 'Ideias' },
+    { to: '/minhas-ideias',    label: 'Minhas Ideias' },
+    { to: '/chat',             label: 'Mensagens' },
+    { to: '/premium',          label: 'Premium' },
     { to: '/minhas-propostas', label: 'Minhas Propostas' },
-    { to: '/perfil',         label: 'Meu Perfil'      },
+    { to: '/perfil',           label: 'Meu Perfil' },
   ];
+
+  const isAdmin = (getRoleFromToken(getToken() || '') || '').toLowerCase() === 'adm';
+  if (isAdmin) {
+    navLinks.unshift({ to: '/admin/dashboard', label: 'Dashboard ADM' });
+  }
 
   return (
     <nav className={styles.navbar}>
-      <Toaster position="top-right" />
-
-      <Link to="/">
-        <img src={logo} alt="Logo" className={styles.logo} />
+      <Link to="/dashboard" className={styles.logo}>
+        <img src={logo} alt="Logo" height={65} />
       </Link>
 
-      {/* Menu desktop */}
+      {/* Links desktop */}
       <div className={`${styles.links} ${styles.desktopOnly}`}>
         {navLinks.map(link => (
           <Link key={link.to} to={link.to} className={styles.navLink}>
@@ -172,11 +134,15 @@ function Navbar() {
         ))}
       </div>
 
-      <div className={styles.actions}>
+      {/* Ações desktop */}
+      <div className={`${styles.actions} ${styles.desktopOnly}`}>
+
+        {/* Sino */}
         <div className={styles.iconWrapper}>
           <button
             className={styles.iconButton}
             onClick={() => setShowNotifications(!showNotifications)}
+            aria-label="Notificações"
           >
             <Bell size={22} />
             {temNaoLidas && <span className={styles.badge} />}
@@ -184,28 +150,28 @@ function Navbar() {
 
           <AnimatePresence>
             {showNotifications && (
-              <motion.div
+              <MotionDiv
                 className={styles.popup}
                 initial={{ opacity: 0, y: -8 }}
                 animate={{ opacity: 1, y: 0 }}
-                exit={{    opacity: 0, y: -8 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.18 }}
               >
                 <div className={styles.popupHeader}>
                   <h4>Notificações</h4>
                 </div>
 
-                {todasNtf.length === 0 ? (
-                  <p className={styles.emptyState}>Você não tem novas notificações no momento.</p>
+                {notificacoes.length === 0 ? (
+                  <p className={styles.emptyState}>
+                    Você não tem novas notificações no momento.
+                  </p>
                 ) : (
                   <ul className={styles.notificationList}>
-                    {todasNtf.map(n => (
+                    {notificacoes.map(n => (
                       <li
                         key={n.ntfId}
                         className={styles.notificationItem}
-                        style={{ 
-                          background: !n.lida ? '#f0f7ff' : undefined, 
-                          cursor: 'pointer' 
-                        }}
+                        style={{ cursor: 'pointer', opacity: n.lida ? 0.55 : 1 }}
                         onClick={() => handleNotificationClick(n)}
                       >
                         <p className={styles.ntfMessage}>{n.mensagem}</p>
@@ -218,49 +184,56 @@ function Navbar() {
                     ))}
                   </ul>
                 )}
-              </motion.div>
+              </MotionDiv>
             )}
           </AnimatePresence>
         </div>
 
-        <Link to="/perfil" className={`${styles.iconButton} ${styles.desktopOnly}`}>
-          <User size={22} />
-        </Link>
-
-        <button className={`${styles.logoutButton} ${styles.desktopOnly}`} onClick={handleLogout}>
-          <LogOut size={18} /> Sair
-        </button>
-
-        <button className={styles.menuMobile} onClick={() => setMobileMenuOpen(true)}>
-          <Menu size={26} />
+        {/* Logout */}
+        <button className={styles.logoutButton} onClick={handleLogout}>
+          <LogOut size={18} />
+          Sair
         </button>
       </div>
 
+      {/* Botão hamburguer mobile */}
+      <button
+        className={styles.menuMobile}
+        onClick={() => setMobileMenuOpen(true)}
+        aria-label="Abrir menu"
+      >
+        <Menu size={26} />
+      </button>
+
+      {/* Menu mobile */}
       <AnimatePresence>
         {mobileMenuOpen && (
           <>
-            <motion.div 
+            <MotionDiv
               className={styles.overlay}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setMobileMenuOpen(false)}
             />
-            
-            <motion.div
-              className={`${styles.links} ${styles.mobileOnly}`}
+            <MotionDiv
+              className={styles.mobileOnly}
               initial={{ x: '100%' }}
               animate={{ x: 0 }}
-              exit={{    x: '100%' }}
-              transition={{ type: 'tween', duration: 0.3 }}
+              exit={{ x: '100%' }}
+              transition={{ type: 'tween', duration: 0.25 }}
             >
               <div className={styles.mobileHeader}>
-                <button className={styles.closeButton} onClick={() => setMobileMenuOpen(false)}>
-                  <X size={28} />
+                <button
+                  className={styles.closeButton}
+                  onClick={() => setMobileMenuOpen(false)}
+                  aria-label="Fechar menu"
+                >
+                  <X size={26} />
                 </button>
               </div>
 
-              <div className={styles.mobileNav}>
+              <nav className={styles.mobileNav}>
                 {navLinks.map(link => (
                   <Link
                     key={link.to}
@@ -271,12 +244,15 @@ function Navbar() {
                     {link.label}
                   </Link>
                 ))}
-                <hr className={styles.divider} />
-                <button className={styles.mobileLogout} onClick={handleLogout}>
-                  <LogOut size={20} /> Sair da conta
-                </button>
-              </div>
-            </motion.div>
+              </nav>
+
+              <hr className={styles.divider} />
+
+              <button className={styles.mobileLogout} onClick={handleLogout}>
+                <LogOut size={18} />
+                Sair da conta
+              </button>
+            </MotionDiv>
           </>
         )}
       </AnimatePresence>

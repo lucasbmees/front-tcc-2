@@ -1,15 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import {
   User, Mail, Phone, MapPin, Calendar,
-  Link as LinkIcon, AlignLeft, Camera, Check, X, Edit2
+  Link as LinkIcon, AlignLeft, Camera, Check, X, Edit2, CreditCard
 } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 import styles from './Perfil.module.css';
 import { apiRequest } from '../../services/api';
+import { getToken, getUsuarioId } from '../../utils/auth';
 
 function Perfil() {
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [pagamentos, setPagamentos] = useState([]);
 
   const [formData, setFormData] = useState({
     nome: '',
@@ -17,15 +19,19 @@ function Perfil() {
     email: '',
     telefone: '',
     descricao: '',
+    historia: '',
     cep: '',
     dataNascimento: '',
     linkRedesSociais: '',
     cargoNome: '',
+    investTicketMin: '',
+    investTicketMax: '',
+    investInteresses: '',
   });
 
   useEffect(() => {
     const fetchProfile = async () => {
-      const token = localStorage.getItem('token');
+      const token = getToken();
 
       if (!token) {
         toast.error('Você precisa estar logado para ver o perfil.');
@@ -33,12 +39,8 @@ function Perfil() {
         return;
       }
 
-      // Extrai o id diretamente do token JWT (padrão ASP.NET)
-      let userId;
-      try {
-        const payload = JSON.parse(atob(token.split('.')[1]));
-        userId = payload["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"];
-      } catch {
+      const userId = getUsuarioId();
+      if (!userId) {
         toast.error('Erro ao recuperar id do usuário pelo token.');
         setLoading(false);
         return;
@@ -64,12 +66,19 @@ function Perfil() {
             email:            data.usuEmail                         || '',
             telefone:         data.usuTelefone                      || '',
             descricao:        data.perfil?.descricao                || '',
+            historia:        data.perfil?.historia                 || '',
             cep:              data.perfil?.cep                      || '',
             dataNascimento:   data.perfil?.dataNasc
                                 ? data.perfil.dataNasc.split('T')[0]
                                 : '',
             linkRedesSociais: data.perfil?.linkRedes                || '',
             cargoNome:        data.cargo                            || '',
+            investTicketMin:  data.perfil?.investTicketMin          || '',
+            investTicketMax:  data.perfil?.investTicketMax          || '',
+            investInteresses: data.perfil?.investInteresses         || '',
+            receberEmailPropostas: data.perfil?.receberEmailPropostas ?? true,
+            receberEmailMensagens: data.perfil?.receberEmailMensagens ?? true,
+            receberEmailAlertas:   data.perfil?.receberEmailAlertas   ?? true,
           });
         } else {
           toast.error('Não foi possível carregar os dados do perfil.');
@@ -82,7 +91,20 @@ function Perfil() {
       }
     };
 
+    const fetchPagamentos = async () => {
+      const token = getToken();
+      try {
+        const res = await apiRequest('/api/pagamentos/meus', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (res.ok) setPagamentos(await res.json());
+      } catch (err) {
+        console.error('Erro ao buscar pagamentos:', err);
+      }
+    };
+
     fetchProfile();
+    fetchPagamentos();
   }, []);
 
   const handleChange = (e) => {
@@ -91,18 +113,15 @@ function Perfil() {
   };
 
   const handleSave = async () => {
-    const token = localStorage.getItem('token');
+    const token = getToken();
 
     if (!token) {
       toast.error('Sessão expirada. Faça login novamente.');
       return;
     }
 
-    let userId;
-    try {
-      const payload = JSON.parse(atob(token.split('.')[1]));
-      userId = payload["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"];
-    } catch {
+    const userId = getUsuarioId();
+    if (!userId) {
       toast.error('Erro ao recuperar id do usuário pelo token.');
       return;
     }
@@ -123,10 +142,17 @@ function Perfil() {
           telefone:  formData.telefone  || null,
           inativar:  null,
           perfil: {
-            descricao: formData.descricao        || null,
-            cep:       formData.cep              || null,
-            dataNasc:  formData.dataNascimento   || null,
-            linkRedes: formData.linkRedesSociais || null,
+            descricao:        formData.descricao        || null,
+            historia:        formData.historia        || null,
+            cep:              formData.cep              || null,
+            dataNasc:         formData.dataNascimento   || null,
+            linkRedes:        formData.linkRedesSociais || null,
+            investTicketMin:  formData.investTicketMin  ? parseFloat(formData.investTicketMin) : null,
+            investTicketMax:  formData.investTicketMax  ? parseFloat(formData.investTicketMax) : null,
+            investInteresses: formData.investInteresses || null,
+            receberEmailPropostas: formData.receberEmailPropostas,
+            receberEmailMensagens: formData.receberEmailMensagens,
+            receberEmailAlertas:   formData.receberEmailAlertas,
           },
         }),
       });
@@ -138,7 +164,7 @@ function Perfil() {
         const errorData = await response.json();
         toast.error(errorData.message || 'Erro ao atualizar perfil.', { id: toastId });
       }
-    } catch (error) {
+    } catch {
       toast.error('Erro de conexão.', { id: toastId });
     }
   };
@@ -321,6 +347,68 @@ function Perfil() {
             </div>
           </div>
 
+          {/* Card: Perfil de Investimento — Apenas para Investidores */}
+          {formData.cargoNome.toLowerCase().includes('invest') && (
+            <div className={`${styles.card} ${styles.fullWidth}`}>
+              <h3 className={styles.cardTitle}>Perfil de Investimento</h3>
+              <div className={styles.gridInvestor}>
+                <div className={styles.infoRow}>
+                  <div className={styles.field}>
+                    <label>Ticket Médio Mínimo (R$)</label>
+                    {isEditing ? (
+                      <input
+                        type="number"
+                        name="investTicketMin"
+                        value={formData.investTicketMin}
+                        onChange={handleChange}
+                        className={styles.inputInline}
+                        placeholder="Ex: 50000"
+                      />
+                    ) : (
+                      <p>{formData.investTicketMin ? `R$ ${parseFloat(formData.investTicketMin).toLocaleString('pt-BR')}` : 'Não informado'}</p>
+                    )}
+                  </div>
+                </div>
+
+                <div className={styles.infoRow}>
+                  <div className={styles.field}>
+                    <label>Ticket Médio Máximo (R$)</label>
+                    {isEditing ? (
+                      <input
+                        type="number"
+                        name="investTicketMax"
+                        value={formData.investTicketMax}
+                        onChange={handleChange}
+                        className={styles.inputInline}
+                        placeholder="Ex: 500000"
+                      />
+                    ) : (
+                      <p>{formData.investTicketMax ? `R$ ${parseFloat(formData.investTicketMax).toLocaleString('pt-BR')}` : 'Não informado'}</p>
+                    )}
+                  </div>
+                </div>
+
+                <div className={styles.infoRow}>
+                  <div className={styles.field} style={{ width: '100%' }}>
+                    <label>Setores de Interesse</label>
+                    {isEditing ? (
+                      <input
+                        type="text"
+                        name="investInteresses"
+                        value={formData.investInteresses}
+                        onChange={handleChange}
+                        className={styles.inputInline}
+                        placeholder="Ex: SaaS, Fintech, Agro"
+                      />
+                    ) : (
+                      <p>{formData.investInteresses || 'Não informado'}</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Card: Sobre Mim — largura total */}
           <div className={`${styles.card} ${styles.fullWidth}`}>
             <h3 className={styles.cardTitle}>Sobre Mim</h3>
@@ -344,6 +432,95 @@ function Perfil() {
             </div>
           </div>
 
+          {(formData.cargoNome || '').toLowerCase() === 'empreendedor' && (
+            <div className={`${styles.card} ${styles.fullWidth}`}>
+              <h3 className={styles.cardTitle}>Jornada dos Founders</h3>
+              <div className={styles.infoRow}>
+                <AlignLeft size={18} className={styles.icon} />
+                <div className={styles.field} style={{ width: '100%' }}>
+                  {isEditing ? (
+                    <textarea
+                      name="historia"
+                      value={formData.historia}
+                      onChange={handleChange}
+                      className={styles.textareaInline}
+                      placeholder="Conte a história: como começou, experiências anteriores, principais aprendizados e conquistas..."
+                    />
+                  ) : (
+                    <p className={styles.bioText}>
+                      {formData.historia || 'Conte sua jornada e a trajetória do time fundador.'}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Card: Preferências de Notificação (Módulo 7) */}
+          <div className={`${styles.card} ${styles.fullWidth}`}>
+            <h3 className={styles.cardTitle}>Preferências de Notificação</h3>
+            <div className={styles.prefsGrid}>
+              <div className={styles.prefItem}>
+                <label>
+                  <input
+                    type="checkbox"
+                    name="receberEmailPropostas"
+                    checked={formData.receberEmailPropostas}
+                    onChange={(e) => setFormData(prev => ({ ...prev, receberEmailPropostas: e.target.checked }))}
+                    disabled={!isEditing}
+                  />
+                  <span>Receber e-mail para novas propostas</span>
+                </label>
+              </div>
+              <div className={styles.prefItem}>
+                <label>
+                  <input
+                    type="checkbox"
+                    name="receberEmailMensagens"
+                    checked={formData.receberEmailMensagens}
+                    onChange={(e) => setFormData(prev => ({ ...prev, receberEmailMensagens: e.target.checked }))}
+                    disabled={!isEditing}
+                  />
+                  <span>Receber e-mail para novas mensagens</span>
+                </label>
+              </div>
+              <div className={styles.prefItem}>
+                <label>
+                  <input
+                    type="checkbox"
+                    name="receberEmailAlertas"
+                    checked={formData.receberEmailAlertas}
+                    onChange={(e) => setFormData(prev => ({ ...prev, receberEmailAlertas: e.target.checked }))}
+                    disabled={!isEditing}
+                  />
+                  <span>Receber e-mail para alertas administrativos</span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          {/* Card: Histórico de Pagamentos Simulados */}
+          <div className={`${styles.card} ${styles.fullWidth}`}>
+            <h3 className={styles.cardTitle}>Histórico de Assinaturas (Simulado)</h3>
+            <div className={styles.paymentsList}>
+              {pagamentos.length === 0 && <p className={styles.empty}>Nenhuma transação simulada encontrada.</p>}
+              {pagamentos.map(p => (
+                <div key={p.id} className={styles.paymentItem}>
+                  <div className={styles.paymentIcon}>
+                    <CreditCard size={20} />
+                  </div>
+                  <div className={styles.paymentInfo}>
+                    <strong>{p.descricao}</strong>
+                    <span>{new Date(p.createDate).toLocaleDateString('pt-BR')} às {new Date(p.createDate).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>
+                  </div>
+                  <div className={styles.paymentValue}>
+                    <strong>{parseFloat(p.valor).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</strong>
+                    <span className={styles.statusBadge}>{p.status}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
     </div>

@@ -160,6 +160,34 @@
   border-top: 1px dashed #e2e8f0;
 }
 
+.btnUpload {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: linear-gradient(135deg, #0d47a1 0%, #1976d2 100%);
+  color: #ffffff;
+  padding: 14px 16px;
+  border: none;
+  border-radius: 16px;
+  font-size: 15px;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 8px 20px rgba(13, 71, 161, 0.18);
+  transition: all 0.3s ease;
+  margin-top: 12px;
+}
+
+.btnUpload:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btnUpload:hover:not(:disabled) {
+  box-shadow: 0 12px 26px rgba(13, 71, 161, 0.26);
+  filter: brightness(1.05);
+}
+
 .btnSave {
   flex: 2;
   display: flex;

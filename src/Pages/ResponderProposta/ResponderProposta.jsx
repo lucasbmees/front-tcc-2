@@ -9,10 +9,12 @@ import {
 import toast, { Toaster } from 'react-hot-toast';
 import styles from './ResponderProposta.module.css';
 import { apiRequest } from '../../services/api';
+import { getToken } from '../../utils/auth';
 
 function ResponderProposta() {
   const { ideiaId } = useParams();
   const navigate    = useNavigate();
+  const MotionDiv = motion.div;
 
   const [proposta, setProposta]                 = useState(null);
   const [loading, setLoading]                   = useState(true);
@@ -20,8 +22,6 @@ function ResponderProposta() {
   const [resultado, setResultado]               = useState(null);
   const [showCounterModal, setShowCounterModal] = useState(false);
   const [counterRetorno, setCounterRetorno]     = useState('');
-
-  const getToken = () => localStorage.getItem('token');
 
   useEffect(() => {
     const fetchProposta = async () => {
@@ -75,18 +75,6 @@ function ResponderProposta() {
     fetchProposta();
   }, [ideiaId]);
 
-  const notificarInvestidor = async (token, mensagem) => {
-    try {
-      await apiRequest('/api/notificacoes/disparar', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ usuarioId: Number(proposta.usuarioId), tipoId: 1, mensagem }),
-      });
-    } catch {
-      console.warn('Não foi possível notificar o investidor.');
-    }
-  };
-
   // Aceitar (aceiteId=1) ou Recusar (aceiteId=2)
   const responder = async (aceiteId) => {
     const token = getToken();
@@ -102,7 +90,6 @@ function ResponderProposta() {
       if (res.ok) {
         const status = aceiteId === 1 ? 'aceita' : 'recusada';
         toast.success(aceiteId === 1 ? 'Proposta aceita!' : 'Proposta recusada.', { id: toastId });
-        await notificarInvestidor(token, `Sua proposta para a ideia #${ideiaId} foi ${status}!`);
         setResultado(status);
       } else {
         const err = await res.json().catch(() => ({}));
@@ -115,7 +102,7 @@ function ResponderProposta() {
     }
   };
 
-  // Contraproposta — usa o mesmo endpoint /responder com aceiteId=3 e retorno preenchido
+  // Contraproposta — usa o mesmo endpoint /responder com aceiteId=4 e retorno preenchido
   const enviarContraproposta = async (e) => {
     e.preventDefault();
     const token = getToken();
@@ -126,14 +113,10 @@ function ResponderProposta() {
       const res = await apiRequest(`/api/propostas/${proposta.prpId}/responder`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ aceiteId: 3, retorno: counterRetorno.trim() }),
+        body: JSON.stringify({ aceiteId: 4, retorno: counterRetorno.trim() }),
       });
       if (res.ok) {
         toast.success('Contraproposta enviada!', { id: toastId });
-        await notificarInvestidor(
-          token,
-          `O empreendedor fez uma contraproposta na ideia #${ideiaId}: "${counterRetorno.trim()}"`
-        );
         setShowCounterModal(false);
         setCounterRetorno('');
         setResultado('contraproposta');
@@ -195,6 +178,7 @@ function ResponderProposta() {
   return (
     <div className={styles.page}>
       <Toaster position="top-right" />
+      <div className={styles.blob} />
       <div className={styles.container}>
 
         <button className={styles.backBtn} onClick={() => navigate(-1)}>
@@ -209,7 +193,7 @@ function ResponderProposta() {
           </div>
         </div>
 
-        <motion.div
+        <MotionDiv
           className={styles.card}
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0  }}
@@ -277,17 +261,17 @@ function ResponderProposta() {
               <XCircle size={16} /> Recusar
             </button>
           </div>
-        </motion.div>
+        </MotionDiv>
       </div>
 
       <AnimatePresence>
         {showCounterModal && (
-          <motion.div
+          <MotionDiv
             className={styles.modalOverlay}
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             onClick={(e) => e.target === e.currentTarget && setShowCounterModal(false)}
           >
-            <motion.div
+            <MotionDiv
               className={styles.modalContent}
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1,   opacity: 1 }}
@@ -336,8 +320,8 @@ function ResponderProposta() {
                   {sending ? 'Enviando...' : <><Send size={16} /> Enviar Contraproposta</>}
                 </button>
               </form>
-            </motion.div>
-          </motion.div>
+            </MotionDiv>
+          </MotionDiv>
         )}
       </AnimatePresence>
     </div>

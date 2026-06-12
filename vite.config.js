@@ -8,7 +8,7 @@ export default defineConfig({
     proxy: {
       '/api': {
         //target: 'https://tcc-backend-sharktank-fbdjfmg5a4e9bjfe.eastus-01.azurewebsites.net',
-        target: 'http://127.0.0.1:5153', // Mudamos de localhost para o IP 127.0.0.1
+        target: 'http://127.0.0.1:5253',
         changeOrigin: true,
         secure: false,
       }

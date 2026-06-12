@@ -1,17 +1,23 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ChevronLeft, PlayCircle, MessageSquare, Info,
-  User, PieChart, X, CheckCircle, Send, Rocket, FileText
+  User, PieChart, X, CheckCircle, Send, Rocket, FileText,
+  AlertCircle, BarChart3
 } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 import styles from './Ideia.module.css';
 import { apiRequest } from '../../services/api';
+import { getToken, getRoleFromToken, getUsuarioId, getPlanFromToken } from '../../utils/auth';
 
 function Ideia() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const token = getToken();
+  const role = (getRoleFromToken(token) || '').toLowerCase();
+  const plan = (getPlanFromToken(token) || '').toLowerCase();
+  const MotionDiv = motion.div;
 
   const [ideia, setIdeia]                     = useState(null);
   const [loading, setLoading]                 = useState(true);
@@ -20,10 +26,19 @@ function Ideia() {
   const [proposalSent, setProposalSent]       = useState(false);
   const [sendingProposal, setSendingProposal] = useState(false);
   const [proposalData, setProposalData]       = useState({ valor: '', fatia: '', mensagem: '' });
+  const [canChat, setCanChat]                 = useState(false);
+
+  // Comentários
+  const [commentText, setCommentText] = useState('');
+  const [isCommenting, setIsCommenting] = useState(false);
+  const [replyingTo, setReplyingTo] = useState(null); // id do comentário pai
+
+    const usuarioLogadoId = String(getUsuarioId() ?? '');
+  const donoIdeia       = String(ideia?.idaUsuarioId ?? ideia?.IdaUsuarioId ?? ideia?.usuarioId ?? ideia?.UsuarioId ?? '');
+  const isOwner         = usuarioLogadoId && donoIdeia && usuarioLogadoId === donoIdeia;
 
   useEffect(() => {
     const fetchIdeia = async () => {
-      const token = localStorage.getItem('token');
       try {
         const response = await apiRequest(`/api/ideias/${id}`, {
           headers: {
@@ -42,25 +57,43 @@ function Ideia() {
     fetchIdeia();
   }, [id]);
 
-  // Decodifica o usuarioId do JWT sem biblioteca externa
-  const getUsuarioId = () => {
-    const token = localStorage.getItem('token');
-    if (!token) return null;
-    try {
-      const payload = JSON.parse(atob(token.split('.')[1]));
-      return (
-        payload.sub ??
-        payload.nameid ??
-        payload['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier'] ??
-        null
-      );
-    } catch {
-      return null;
-    }
-  };
+  useEffect(() => {
+    if (role !== 'investidor') setShowProposal(false);
+  }, [role]);
+
+  useEffect(() => {
+    const verificarChat = async () => {
+      if (!token || role !== 'investidor') { setCanChat(false); return; }
+      if (isOwner) { setCanChat(false); return; }
+
+      try {
+        const res = await apiRequest('/api/propostas/minhas', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (!res.ok) { setCanChat(false); return; }
+
+        const raw = await res.json();
+        const ideiaIdNum = Number(id);
+        const propostas = Array.isArray(raw) ? raw : [];
+        const minha = propostas.find(p => Number(p.PrpIdeiaId ?? p.prpIdeiaId) === ideiaIdNum);
+        if (!minha) { setCanChat(false); return; }
+
+        const infos = minha.Infos ?? minha.infos ?? [];
+        const ultima = infos[infos.length - 1] ?? {};
+        const aceiteId = ultima.AceiteId ?? ultima.aceiteId;
+        const aceiteNome = String(ultima.AceiteNome ?? ultima.aceiteNome ?? '').toLowerCase();
+        setCanChat(aceiteId === 1 || aceiteNome.includes('aceit'));
+      } catch {
+        setCanChat(false);
+      }
+    };
+
+    verificarChat();
+  }, [token, role, id, isOwner]);
 
   // ── PEÇA-CHAVE: dispara notificação para o dono via POST /api/notificacoes ──
-  const dispararNotificacaoDono = async (token, donoId, ideiaId, nomeIdeia) => {
+  const dispararNotificacaoDono = async (token, donoId, ideiaId) => {
   try {
     await apiRequest('/api/notificacoes/disparar', {
       method: 'POST',
@@ -69,7 +102,7 @@ function Ideia() {
         usuarioId: Number(donoId),
         tipoId:    1,
         // ← ideiaId explícito no formato "ideia #3" para o Navbar extrair corretamente
-        mensagem:  `Você recebeu uma nova proposta na ideia #${ideiaId} - "${nomeIdeia}"!`,
+        mensagem:  `Você recebeu uma nova proposta na ideia ${ideiaId}!`,
       }),
     });
   } catch {
@@ -79,8 +112,8 @@ function Ideia() {
 
   const handleProposalSubmit = async (e) => {
     e.preventDefault();
-    const token = localStorage.getItem('token');
     if (!token) { toast.error('Você precisa estar logado.'); return; }
+    if (role !== 'investidor') { toast.error('Apenas investidores podem enviar proposta.'); return; }
 
     setSendingProposal(true);
     const toastId = toast.loading('Enviando proposta...');
@@ -103,9 +136,12 @@ function Ideia() {
         toast.success('Proposta enviada com sucesso!', { id: toastId });
 
         // ── Notifica o dono da ideia ──────────────────────────────────
-        const donoId    = ideia?.idaUsuarioId ?? ideia?.usuarioId;
-        const nomeIdeia = ideia?.idaNome ?? `Ideia #${id}`;
-        if (donoId) await dispararNotificacaoDono(token, donoId, nomeIdeia);
+        const donoId =
+          ideia?.idaUsuarioId ??
+          ideia?.IdaUsuarioId ??
+          ideia?.usuarioId ??
+          ideia?.UsuarioId;
+        if (donoId) await dispararNotificacaoDono(token, donoId, Number(id));
         // ─────────────────────────────────────────────────────────────
 
         setProposalSent(true);
@@ -116,7 +152,12 @@ function Ideia() {
         }, 3000);
       } else {
         let msg = 'Erro ao enviar proposta.';
-        try { const err = await response.json(); msg = err.message || err.title || msg; } catch {}
+        if (response.status === 403) {
+          msg = 'Acesso negado. Apenas investidores podem enviar proposta.';
+        } else {
+          const err = await response.json().catch(() => ({}));
+          msg = err.message || err.title || msg;
+        }
         toast.error(`${response.status}: ${msg}`, { id: toastId });
       }
     } catch (error) {
@@ -132,9 +173,180 @@ function Ideia() {
     setProposalData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const usuarioLogadoId = String(getUsuarioId() ?? '');
-  const donoIdeia       = String(ideia?.idaUsuarioId ?? ideia?.usuarioId ?? '');
-  const isOwner         = usuarioLogadoId && donoIdeia && usuarioLogadoId === donoIdeia;
+  const abrirDocumento = async (url) => {
+    const token = getToken();
+    if (!token) { toast.error('Faça login para visualizar documentos.'); return; }
+    try {
+      const res = await apiRequest(url, {
+        method: 'GET',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        toast.error(err.message ?? err.title ?? 'Não foi possível abrir o documento.');
+        return;
+      }
+
+      const blob = await res.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      window.open(objectUrl, '_blank', 'noopener,noreferrer');
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
+    } catch {
+      toast.error('Erro de conexão.');
+    }
+  };
+
+  const handleCommentSubmit = async (e) => {
+    e.preventDefault();
+    if (!commentText.trim()) return;
+
+    const token = localStorage.getItem('token');
+    if (!token) { toast.error('Faça login para comentar.'); return; }
+
+    setIsCommenting(true);
+    try {
+      const response = await apiRequest(`/api/ideias/${id}/comentarios`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          texto: commentText,
+          parentId: replyingTo
+        }),
+      });
+
+      if (response.ok) {
+        toast.success('Comentário enviado!');
+        setCommentText('');
+        setReplyingTo(null);
+        // Recarrega a ideia para mostrar o novo comentário
+        const res = await apiRequest(`/api/ideias/${id}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (res.ok) setIdeia(await res.json());
+      } else {
+        toast.error('Erro ao enviar comentário.');
+      }
+    } catch {
+      toast.error('Erro de conexão.');
+    } finally {
+      setIsCommenting(false);
+    }
+  };
+
+  const handleStartChat = async () => {
+    const token = getToken();
+    if (!token) {
+      toast.error('Faça login para conversar com o empreendedor.');
+      return;
+    }
+    if (!canChat) {
+      toast.error('Conversa disponível apenas após uma proposta ser aceita.');
+      return;
+    }
+
+    const paraUsuarioId =
+      ideia?.idaUsuarioId ??
+      ideia?.IdaUsuarioId ??
+      ideia?.usuarioId ??
+      ideia?.UsuarioId;
+
+    const ideiaId = ideia?.idaId ?? ideia?.IdaId ?? Number(id);
+
+    if (!paraUsuarioId) {
+      toast.error('Não foi possível identificar o empreendedor desta ideia.');
+      return;
+    }
+
+    try {
+      const response = await apiRequest('/api/chat/mensagens', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          paraUsuarioId: Number(paraUsuarioId),
+          ideiaId: ideiaId ? Number(ideiaId) : null,
+          texto: "Olá! Gostaria de saber mais sobre sua ideia."
+        })
+      });
+
+      if (response.ok) {
+        navigate('/chat');
+      } else {
+        const err = await response.json().catch(() => ({}));
+        toast.error(err.message ?? err.title ?? 'Erro ao iniciar conversa.');
+      }
+    } catch {
+      toast.error('Erro de conexão.');
+    }
+  };
+
+  const handleDownloadRelatorio = async () => {
+    if (!token) {
+      toast.error('Faça login para baixar o relatório.');
+      return;
+    }
+    if (role !== 'investidor' || plan !== 'elite') {
+      toast.error('Recurso disponível apenas para investidores Elite.');
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/ideias/${id}/relatorio`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `Relatorio-Ideia-${id}.md`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        toast.success('Relatório baixado com sucesso!');
+      } else {
+        const err = await response.json().catch(() => ({}));
+        toast.error(err.message ?? err.title ?? 'Erro ao baixar relatório.');
+      }
+    } catch {
+      toast.error('Erro de conexão.');
+    }
+  };
+
+  const handleDenunciar = async () => {
+    const motivo = window.prompt("Por que você está denunciando esta ideia?");
+    if (!motivo) return;
+
+    const token = localStorage.getItem('token');
+    try {
+      const response = await apiRequest('/api/governança/denunciar', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          tipoAlvo: "Ideia",
+          alvoId: ideia.idaId,
+          motivo
+        })
+      });
+
+      if (response.ok) {
+        toast.success("Denúncia enviada para moderação.");
+      }
+    } catch {
+      toast.error("Erro ao enviar denúncia.");
+    }
+  };
+
+
 
   if (loading) return (
     <div className={styles.page}>
@@ -168,6 +380,12 @@ function Ideia() {
   const fatia      = info.idaInfoFatia;
   const linkVideo  = info.idaInfoLinkVideo;
   const cnpj       = info.idaInfoCnpj;
+  const valorCaptacao = info.idaInfoValorCaptacao;
+  const faturamento = info.idaInfoFaturamento;
+  const custosMensais = info.idaInfoCustosMensais;
+  const tempoMercadoMeses = info.idaInfoTempoMercadoMeses;
+  const quantidadeClientes = info.idaInfoQuantidadeClientes;
+  const feedbackClientes = info.idaInfoFeedbackClientes;
   const documentos = ideia.documentos ?? [];
   const isAtivo    = statusId === 1 || String(statusNome ?? '').toLowerCase().includes('ativ');
 
@@ -216,6 +434,15 @@ function Ideia() {
                 <span>Empreendedor</span>
                 <strong>ID #{ideia.idaUsuarioId}</strong>
               </div>
+              {usuarioLogadoId !== donoIdeia && (
+                <button 
+                  onClick={handleDenunciar} 
+                  title="Denunciar Ideia"
+                  style={{ marginLeft: 'auto', background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer' }}
+                >
+                  <AlertCircle size={18} />
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -224,6 +451,65 @@ function Ideia() {
           <div className={styles.descriptionSection}>
             <div className={styles.sectionTitle}><Info size={20} /><h2>Sobre a Ideia</h2></div>
             <p className={styles.description}>{descricao}</p>
+          </div>
+        )}
+
+        {(valorCaptacao != null ||
+          faturamento != null ||
+          custosMensais != null ||
+          tempoMercadoMeses != null ||
+          quantidadeClientes != null ||
+          (feedbackClientes && String(feedbackClientes).trim())) && (
+          <div className={styles.descriptionSection} style={{ marginBottom: 40 }}>
+            <div className={styles.sectionTitle}><BarChart3 size={20} /><h2>Métricas</h2></div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
+              {valorCaptacao != null && (
+                <div style={{ padding: 14, border: '1px solid #e2e8f0', borderRadius: 14, background: 'white' }}>
+                  <div style={{ color: '#64748b', fontSize: 12, fontWeight: 700 }}>Captação</div>
+                  <div style={{ fontSize: 16, fontWeight: 800, color: '#0f172a' }}>
+                    {Number(valorCaptacao).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                  </div>
+                </div>
+              )}
+              {faturamento != null && (
+                <div style={{ padding: 14, border: '1px solid #e2e8f0', borderRadius: 14, background: 'white' }}>
+                  <div style={{ color: '#64748b', fontSize: 12, fontWeight: 700 }}>Faturamento</div>
+                  <div style={{ fontSize: 16, fontWeight: 800, color: '#0f172a' }}>
+                    {Number(faturamento).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                  </div>
+                </div>
+              )}
+              {custosMensais != null && (
+                <div style={{ padding: 14, border: '1px solid #e2e8f0', borderRadius: 14, background: 'white' }}>
+                  <div style={{ color: '#64748b', fontSize: 12, fontWeight: 700 }}>Custos mensais</div>
+                  <div style={{ fontSize: 16, fontWeight: 800, color: '#0f172a' }}>
+                    {Number(custosMensais).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                  </div>
+                </div>
+              )}
+              {tempoMercadoMeses != null && (
+                <div style={{ padding: 14, border: '1px solid #e2e8f0', borderRadius: 14, background: 'white' }}>
+                  <div style={{ color: '#64748b', fontSize: 12, fontWeight: 700 }}>Tempo de mercado</div>
+                  <div style={{ fontSize: 16, fontWeight: 800, color: '#0f172a' }}>
+                    {Number(tempoMercadoMeses)} meses
+                  </div>
+                </div>
+              )}
+              {quantidadeClientes != null && (
+                <div style={{ padding: 14, border: '1px solid #e2e8f0', borderRadius: 14, background: 'white' }}>
+                  <div style={{ color: '#64748b', fontSize: 12, fontWeight: 700 }}>Quantidade de clientes</div>
+                  <div style={{ fontSize: 16, fontWeight: 800, color: '#0f172a' }}>
+                    {Number(quantidadeClientes).toLocaleString('pt-BR')}
+                  </div>
+                </div>
+              )}
+            </div>
+            {feedbackClientes && String(feedbackClientes).trim() && (
+              <div style={{ marginTop: 14, padding: 14, border: '1px solid #e2e8f0', borderRadius: 14, background: 'white' }}>
+                <div style={{ color: '#64748b', fontSize: 12, fontWeight: 700, marginBottom: 6 }}>Feedback de clientes</div>
+                <div style={{ color: '#334155', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{feedbackClientes}</div>
+              </div>
+            )}
           </div>
         )}
 
@@ -242,9 +528,13 @@ function Ideia() {
             <ul style={{ listStyle:'none', display:'flex', flexDirection:'column', gap:10 }}>
               {documentos.map((doc) => (
                 <li key={doc.idaDocumentoId}>
-                  <a href={doc.arquivo} target="_blank" rel="noopener noreferrer" style={{ display:'inline-flex', alignItems:'center', gap:8, color:'#0d47a1', fontWeight:600, textDecoration:'none', fontSize:14 }}>
+                  <button
+                    type="button"
+                    onClick={() => abrirDocumento(doc.arquivo)}
+                    style={{ display:'inline-flex', alignItems:'center', gap:8, color:'#0d47a1', fontWeight:600, textDecoration:'none', fontSize:14, background:'transparent', border:'none', padding:0, cursor:'pointer' }}
+                  >
                     <FileText size={15} /> Documento #{doc.idaDocumentoId}
-                  </a>
+                  </button>
                 </li>
               ))}
             </ul>
@@ -253,11 +543,27 @@ function Ideia() {
 
         <div className={styles.actionsArea}>
           {/* Investidor vê botão de enviar proposta */}
-          {!isOwner && (
+          {!isOwner && role === 'investidor' && (
             <div className={styles.actionCard}>
               <div className={styles.cardHeader}><MessageSquare size={22} color="#0d47a1" /><h3>Fazer Proposta</h3></div>
               <p>Demonstre seu interesse e envie uma proposta de investimento ao empreendedor.</p>
-              <button className={styles.buttonPrimary} onClick={() => setShowProposal(true)}>Enviar Proposta</button>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <button className={styles.buttonPrimary} onClick={() => setShowProposal(true)}>Enviar Proposta</button>
+                {plan === 'elite' && (
+                  <button className={styles.buttonSecondary} onClick={handleDownloadRelatorio} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '12px', borderRadius: 12, border: '1.5px solid #0d47a1', background: 'transparent', color: '#0d47a1', fontWeight: 700, cursor: 'pointer' }}>
+                    <Rocket size={18} /> Baixar Relatório (Elite)
+                  </button>
+                )}
+                {canChat ? (
+                  <button className={styles.buttonSecondary} onClick={handleStartChat} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '12px', borderRadius: 12, border: '1.5px solid #0d47a1', background: 'transparent', color: '#0d47a1', fontWeight: 700, cursor: 'pointer' }}>
+                    <MessageSquare size={18} /> Conversar com Empreendedor
+                  </button>
+                ) : (
+                  <p style={{ margin: 0, fontSize: 13, color: '#94a3b8' }}>
+                    Mensagens liberadas após uma proposta ser aceita.
+                  </p>
+                )}
+              </div>
             </div>
           )}
 
@@ -280,13 +586,76 @@ function Ideia() {
             </div>
           </div>
         </div>
+
+        {/* Comentários */}
+        <div className={styles.descriptionSection} style={{ marginTop: 40 }}>
+          <div className={styles.sectionTitle}><MessageSquare size={20} /><h2>Comentários e Dúvidas</h2></div>
+
+          <form onSubmit={handleCommentSubmit} className={styles.commentForm}>
+            <textarea
+              placeholder={replyingTo ? "Escreva sua resposta..." : "Tem alguma dúvida ou sugestão? Comente aqui..."}
+              value={commentText}
+              onChange={(e) => setCommentText(e.target.value)}
+              className={styles.commentInput}
+              required
+            />
+            <div style={{ display:'flex', gap: 10, justifyContent: 'flex-end', marginTop: 10 }}>
+              {replyingTo && (
+                <button type="button" className={styles.cancelBtn} onClick={() => setReplyingTo(null)}>Cancelar</button>
+              )}
+              <button type="submit" className={styles.buttonPrimary} disabled={isCommenting}>
+                {isCommenting ? 'Enviando...' : (replyingTo ? 'Responder' : 'Comentar')}
+              </button>
+            </div>
+          </form>
+
+          <div className={styles.commentsList}>
+            {(ideia.comentarios ?? []).length === 0 && (
+              <p style={{ color: '#94a3b8', textAlign: 'center', padding: '20px 0' }}>Nenhum comentário ainda. Seja o primeiro!</p>
+            )}
+            {(ideia.comentarios ?? []).map(comment => (
+              <div key={comment.id} className={styles.commentItem}>
+                <div className={styles.commentHeader}>
+                  <div className={styles.commentUser}>
+                    <div className={styles.commentAvatar}>{comment.usuarioNome?.[0]}</div>
+                    <div>
+                      <strong>{comment.usuarioNome}</strong>
+                      <span>{new Date(comment.createDate).toLocaleDateString('pt-BR')}</span>
+                    </div>
+                  </div>
+                  <button className={styles.replyBtn} onClick={() => {
+                    setReplyingTo(comment.id);
+                    window.scrollTo({ top: document.querySelector(`.${styles.commentForm}`).offsetTop - 100, behavior: 'smooth' });
+                  }}>Responder</button>
+                </div>
+                <p className={styles.commentText}>{comment.texto}</p>
+
+                {/* Respostas */}
+                {(comment.replies ?? []).map(reply => (
+                  <div key={reply.id} className={styles.replyItem}>
+                    <div className={styles.commentHeader}>
+                      <div className={styles.commentUser}>
+                        <div className={styles.commentAvatar} style={{ width: 24, height: 24, fontSize: 10 }}>{reply.usuarioNome?.[0]}</div>
+                        <div>
+                          <strong style={{ fontSize: 13 }}>{reply.usuarioNome}</strong>
+                          <span style={{ fontSize: 11 }}>{new Date(reply.createDate).toLocaleDateString('pt-BR')}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <p className={styles.commentText} style={{ fontSize: 13 }}>{reply.texto}</p>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
 
       <AnimatePresence>
-        {showProposal && !isOwner && (
-          <motion.div className={styles.modalOverlay} initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}
+        {showProposal && !isOwner && role === 'investidor' && (
+          <MotionDiv className={styles.modalOverlay} initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}
             onClick={(e) => e.target === e.currentTarget && setShowProposal(false)}>
-            <motion.div className={styles.modalContent} initial={{ scale:0.9, opacity:0 }} animate={{ scale:1, opacity:1 }} exit={{ scale:0.9, opacity:0 }}>
+            <MotionDiv className={styles.modalContent} initial={{ scale:0.9, opacity:0 }} animate={{ scale:1, opacity:1 }} exit={{ scale:0.9, opacity:0 }}>
               <button className={styles.closeModal} onClick={() => setShowProposal(false)}><X size={18} /></button>
 
               {proposalSent ? (
@@ -322,8 +691,8 @@ function Ideia() {
                   </form>
                 </>
               )}
-            </motion.div>
-          </motion.div>
+            </MotionDiv>
+          </MotionDiv>
         )}
       </AnimatePresence>
     </div>

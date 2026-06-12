@@ -12,6 +12,8 @@ function Login() {
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
   const [erros, setErros] = useState({});
+  const MotionDiv = motion.div;
+  const MotionButton = motion.button;
 
   const validar = () => {
     const novosErros = {};
@@ -35,7 +37,7 @@ function Login() {
     setErros(novosErros);
 
     if (Object.keys(novosErros).length === 0) {
-      const toastId = toast.loading("A verificar credenciais...");
+      const toastId = toast.loading("A verificar credenciais...", { duration: Infinity });
 
       try {
         // Usando a porta 5153 que localizámos no seu terminal
@@ -63,16 +65,16 @@ function Login() {
 
           localStorage.setItem("user", JSON.stringify({ id: userId }));
 
-          toast.success("Login bem-sucedido!", { id: toastId });
-          setTimeout(() => navigate("/"), 1500);
+          toast.dismiss(toastId);
+          navigate("/dashboard");
         } else {
           const errorData = await response.json().catch(() => ({}));
-          toast.error(errorData.message || "Credenciais inválidas.", { id: toastId });
+          toast.error(errorData.message || "Credenciais inválidas.", { id: toastId, duration: 3000 });
         }
       } catch (error) {
         toast.error(
           "Erro ao conectar ao servidor. Verifique se o back-end está ligado.",
-          { id: toastId },
+          { id: toastId, duration: 3000 },
         );
         console.error("Erro de Login:", error);
       }
@@ -81,7 +83,7 @@ function Login() {
 
   return (
     <div className={styles.page}>
-      <motion.div
+      <MotionDiv
         className={styles.container}
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
@@ -90,7 +92,7 @@ function Login() {
         <div className={styles.header}>
           <img src={logo} alt="Logo" className={styles.logo} />
           <h1 className={styles.title}>Bem-vindo</h1>
-          <p className={styles.subtitle}>Aceda à sua conta para continuar</p>
+          <p className={styles.subtitle}>Acesse a sua conta para continuar</p>
         </div>
 
         <form onSubmit={handleLogin}>
@@ -124,14 +126,14 @@ function Login() {
             {erros.senha && <span className={styles.error}>{erros.senha}</span>}
           </div>
 
-          <motion.button
+          <MotionButton
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             type="submit"
             className={styles.button}
           >
             Entrar
-          </motion.button>
+          </MotionButton>
         </form>
 
         <div className={styles.linksArea}>
@@ -145,7 +147,7 @@ function Login() {
             </Link>
           </p>
         </div>
-      </motion.div>
+      </MotionDiv>
     </div>
   );
 }

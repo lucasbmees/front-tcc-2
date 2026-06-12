@@ -385,3 +385,231 @@
   color: #94a3b8;
   font-weight: 600;
 }
+
+.blob {
+  position: absolute;
+  top: -120px;
+  right: -120px;
+  width: 520px;
+  height: 520px;
+  background: radial-gradient(circle, rgba(13, 71, 161, 0.06) 0%, rgba(255, 255, 255, 0) 70%);
+  z-index: 0;
+  pointer-events: none;
+}
+
+.titleArea {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.headerIcon {
+  color: #0d47a1;
+}
+
+.countBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 34px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: #0d47a1;
+  font-weight: 800;
+  font-size: 13px;
+  border: 1px solid #dbeafe;
+}
+
+.emptyState {
+  background: white;
+  border: 1px dashed #e2e8f0;
+  border-radius: 18px;
+  padding: 44px 24px;
+  text-align: center;
+  color: #64748b;
+}
+
+.emptyIcon {
+  color: #cbd5e1;
+  margin-bottom: 12px;
+}
+
+.propostasGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 18px;
+}
+
+.propostaCard {
+  background: white;
+  border-radius: 18px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 6px 24px rgba(15, 23, 42, 0.06);
+  overflow: hidden;
+}
+
+.cardTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 18px 18px 12px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.investidorInfo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.investidorLabel {
+  display: block;
+  font-size: 11px;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 2px;
+  font-weight: 800;
+}
+
+.investidorId {
+  display: block;
+  font-size: 14px;
+  color: #0f172a;
+  font-weight: 800;
+}
+
+.statusPendente {
+  background: #fef9c3;
+  color: #a16207;
+  border: 1px solid rgba(161, 98, 7, 0.18);
+}
+
+.statusAceita {
+  background: #dcfce7;
+  color: #166534;
+  border: 1px solid rgba(22, 101, 52, 0.18);
+}
+
+.statusRecusada {
+  background: #fee2e2;
+  color: #b91c1c;
+  border: 1px solid rgba(185, 28, 28, 0.18);
+}
+
+.cardBody {
+  padding: 16px 18px 18px;
+}
+
+.infoRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-bottom: 12px;
+}
+
+.infoItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 12px 12px;
+}
+
+.infoIcon {
+  color: #0d47a1;
+  margin-top: 2px;
+}
+
+.infoLabel {
+  display: block;
+  font-size: 11px;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 800;
+}
+
+.infoValue {
+  display: block;
+  font-size: 15px;
+  color: #0f172a;
+  font-weight: 800;
+  margin-top: 2px;
+}
+
+.mensagemBox {
+  background: #f8faff;
+  border: 1px solid #e2e8f0;
+  border-left: 3px solid #0d47a1;
+  border-radius: 0 12px 12px 0;
+  padding: 12px 14px;
+}
+
+.mensagemText {
+  margin: 0;
+  font-size: 14px;
+  color: #1e293b;
+  line-height: 1.55;
+}
+
+.cardActions {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 10px;
+  padding: 14px 18px 18px;
+  border-top: 1px solid #f1f5f9;
+}
+
+.btnAccept,
+.btnCounter,
+.btnReject {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: 12px;
+  padding: 12px 10px;
+  font-weight: 800;
+  font-size: 14px;
+  cursor: pointer;
+  transition: transform 0.1s, background 0.15s, border-color 0.15s, opacity 0.15s;
+}
+
+.btnAccept {
+  background: #16a34a;
+  color: white;
+  border: none;
+}
+.btnAccept:hover:not(:disabled) { background: #15803d; transform: translateY(-1px); }
+
+.btnCounter {
+  background: white;
+  color: #0d47a1;
+  border: 2px solid #0d47a1;
+}
+.btnCounter:hover:not(:disabled) { background: #eff6ff; transform: translateY(-1px); }
+
+.btnReject {
+  background: white;
+  color: #dc2626;
+  border: 2px solid #dc2626;
+}
+.btnReject:hover:not(:disabled) { background: #fef2f2; transform: translateY(-1px); }
+
+.btnAccept:disabled,
+.btnCounter:disabled,
+.btnReject:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+@media (max-width: 520px) {
+  .cardActions {
+    grid-template-columns: 1fr;
+  }
+}

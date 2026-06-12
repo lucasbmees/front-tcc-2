@@ -5,9 +5,12 @@ import toast, { Toaster } from 'react-hot-toast';
 import styles from './Cadastro.module.css';
 import logo from '../../assets/logo.png';
 import { apiRequest } from '../../services/api';
+import { digitsOnly, formatCpf, formatTelefone } from '../../utils/masks';
 
 function Cadastro() {
   const navigate = useNavigate();
+  const MotionDiv = motion.div;
+  const MotionButton = motion.button;
   
   // Estado ajustado para os campos do back-end
   const [formData, setFormData] = useState({
@@ -21,10 +24,35 @@ function Cadastro() {
     cargoNome: 'empreendedor'
   });
 
+  const applyMask = (e, formatFn) => {
+    const input = e.target;
+    const raw = input.value ?? '';
+    const caret = input.selectionStart ?? raw.length;
+    const digitsBeforeCaret = raw.slice(0, caret).replace(/\D/g, '').length;
+    const formatted = formatFn(raw);
+
+    setFormData(prev => ({ ...prev, [input.name]: formatted }));
+
+    requestAnimationFrame(() => {
+      const el = input;
+      if (!el || typeof el.setSelectionRange !== 'function') return;
+      let pos = 0;
+      let digits = 0;
+      while (pos < formatted.length && digits < digitsBeforeCaret) {
+        if (/\d/.test(formatted[pos])) digits += 1;
+        pos += 1;
+      }
+      el.setSelectionRange(pos, pos);
+    });
+  };
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
+
+  const handleCpfChange = (e) => applyMask(e, formatCpf);
+  const handleTelefoneChange = (e) => applyMask(e, formatTelefone);
 
   const handleRegister = async (e) => {
   e.preventDefault();
@@ -44,9 +72,9 @@ function Cadastro() {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        cpf: formData.cpf,           // Campo esperado no back
+        cpf: digitsOnly(formData.cpf),           // Campo esperado no back
         email: formData.email,       // Campo esperado no back
-        telefone: formData.telefone, // Campo esperado no back
+        telefone: digitsOnly(formData.telefone), // Campo esperado no back
         senha: formData.senha,       // Campo esperado no back
         nome: formData.nome,         // Campo esperado no back
         sobrenome: formData.sobrenome, // Campo esperado no back
@@ -71,7 +99,7 @@ function Cadastro() {
     <div className={styles.page}>
       <Toaster position="top-center" />
 
-      <motion.div 
+      <MotionDiv 
         className={styles.container}
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -127,8 +155,11 @@ function Cadastro() {
               name="cpf" 
               className={styles.input} 
               value={formData.cpf} 
-              onChange={handleChange} 
+              onChange={handleCpfChange} 
               placeholder="000.000.000-00"
+              inputMode="numeric"
+              pattern="[0-9]{3}[.][0-9]{3}[.][0-9]{3}[-][0-9]{2}"
+              maxLength={14}
               required 
             />
           </div>
@@ -140,8 +171,11 @@ function Cadastro() {
               name="telefone" 
               className={styles.input} 
               value={formData.telefone} 
-              onChange={handleChange} 
+              onChange={handleTelefoneChange} 
               placeholder="(00) 00000-0000"
+              inputMode="numeric"
+              pattern="[(][0-9]{2}[)] [0-9]{4,5}[-][0-9]{4}"
+              maxLength={15}
               required 
             />
           </div>
@@ -183,14 +217,14 @@ function Cadastro() {
             </select>
           </div>
 
-          <motion.button 
+          <MotionButton 
             type="submit" 
             className={styles.button}
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
           >
             Finalizar Cadastro
-          </motion.button>
+          </MotionButton>
         </form>
 
         <div className={styles.linkArea}>
@@ -198,7 +232,7 @@ function Cadastro() {
             Já tem uma conta? <Link to="/login" className={styles.linkHighlight}>Entrar</Link>
           </p>
         </div>
-      </motion.div>
+      </MotionDiv>
     </div>
   );
 }

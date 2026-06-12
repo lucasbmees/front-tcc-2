@@ -1,0 +1,273 @@
+.container {
+  display: flex;
+  height: calc(100vh - 80px);
+  background: #f8fafc;
+  margin: -20px;
+  overflow: hidden;
+}
+
+.sidebar {
+  width: 350px;
+  background: white;
+  border-right: 1px solid #e2e8f0;
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebarHeader {
+  padding: 24px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.sidebarHeader h2 {
+  margin: 0;
+  font-size: 20px;
+  color: #1e293b;
+}
+
+.conversasLista {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.conversaItem {
+  display: flex;
+  gap: 12px;
+  padding: 16px 24px;
+  cursor: pointer;
+  transition: all 0.2s;
+  border-bottom: 1px solid #f8fafc;
+}
+
+.conversaItem:hover {
+  background: #f1f5f9;
+}
+
+.conversaItem.ativa {
+  background: #f0f7ff;
+  border-left: 4px solid #0d47a1;
+}
+
+.avatar {
+  width: 48px;
+  height: 48px;
+  background: #0d47a1;
+  color: white;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.conversaInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.conversaHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.conversaHeader strong {
+  font-size: 15px;
+  color: #1e293b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.conversaHeader span {
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.conversaContexto {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: #0d47a1;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.ultimaMsg {
+  margin: 0;
+  font-size: 13px;
+  color: #64748b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chatArea {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: white;
+}
+
+.chatHeader {
+  padding: 16px 32px;
+  border-bottom: 1px solid #f1f5f9;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.avatarGrande {
+  width: 40px;
+  height: 40px;
+  background: #0d47a1;
+  color: white;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+}
+
+.chatHeader h3 {
+  margin: 0;
+  font-size: 16px;
+  color: #1e293b;
+}
+
+.badge {
+  font-size: 11px;
+  color: #0d47a1;
+  background: #f0f7ff;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-weight: 600;
+}
+
+.mensagensArea {
+  flex: 1;
+  padding: 32px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  background: #f8fafc;
+}
+
+.mensagemWrapper {
+  display: flex;
+  width: 100%;
+}
+
+.minha { justify-content: flex-end; }
+.outra { justify-content: flex-start; }
+
+.mensagem {
+  max-width: 70%;
+  padding: 12px 16px;
+  border-radius: 16px;
+  position: relative;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.minha .mensagem {
+  background: #0d47a1;
+  color: white;
+  border-bottom-right-radius: 4px;
+}
+
+.outra .mensagem {
+  background: white;
+  color: #1e293b;
+  border-bottom-left-radius: 4px;
+}
+
+.mensagem p {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.hora {
+  font-size: 10px;
+  margin-top: 4px;
+  display: block;
+  text-align: right;
+  opacity: 0.7;
+}
+
+.inputArea {
+  padding: 24px 32px;
+  display: flex;
+  gap: 12px;
+  background: white;
+  border-top: 1px solid #f1f5f9;
+}
+
+.inputArea input {
+  flex: 1;
+  padding: 14px 20px;
+  border-radius: 12px;
+  border: 2px solid #e2e8f0;
+  font-size: 15px;
+  transition: all 0.2s;
+}
+
+.inputArea input:focus {
+  border-color: #0d47a1;
+  outline: none;
+}
+
+.inputArea button {
+  background: #0d47a1;
+  color: white;
+  border: none;
+  width: 50px;
+  height: 50px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.inputArea button:hover {
+  background: #0a3d8a;
+  transform: translateY(-2px);
+}
+
+.inputArea button:disabled {
+  background: #cbd5e1;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.noChat {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  color: #94a3b8;
+}
+
+.empty {
+  text-align: center;
+  padding: 40px 20px;
+  color: #94a3b8;
+  font-size: 14px;
+}
+
+.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #64748b;
+}

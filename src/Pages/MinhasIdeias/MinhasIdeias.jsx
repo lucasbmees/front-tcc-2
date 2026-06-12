@@ -4,6 +4,7 @@ import { Plus, Briefcase, Rocket } from 'lucide-react';
 import IdeiaCard from '../../Components/IdeiaCard/IdeiaCard';
 import styles from './MinhasIdeias.module.css';
 import { apiRequest } from '../../services/api';
+import { getToken, getUsuarioId } from '../../utils/auth';
 
 function MinhasIdeias() {
   const [minhasIdeias, setMinhasIdeias] = useState([]);
@@ -13,21 +14,14 @@ function MinhasIdeias() {
 
   useEffect(() => {
     const fetchIdeias = async () => {
-      const token = localStorage.getItem('token');
+      const token = getToken();
       if (!token) {
         setLoading(false);
         return;
       }
 
-      // Extrai o id do usuário do token JWT (padrão ASP.NET)
-      let userId;
-      try {
-        const payload = JSON.parse(atob(token.split('.')[1]));
-        userId =
-          payload['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier'] ||
-          payload['sub'] ||
-          payload['nameid'];
-      } catch {
+      const userId = getUsuarioId();
+      if (!userId) {
         setLoading(false);
         return;
       }

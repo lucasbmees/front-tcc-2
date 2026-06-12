@@ -8,10 +8,12 @@ import {
 import toast, { Toaster } from 'react-hot-toast';
 import styles from './Propostas.module.css';
 import { apiRequest } from '../../services/api';
+import { getToken } from '../../utils/auth';
 
 function Propostas() {
   const { ideiaId } = useParams();
   const navigate    = useNavigate();
+  const MotionDiv = motion.div;
 
   const [ideia, setIdeia]         = useState(null);
   const [propostas, setPropostas] = useState([]);
@@ -22,8 +24,6 @@ function Propostas() {
   const [counterSent, setCounterSent]           = useState(false);
   const [sendingAction, setSendingAction]       = useState(false);
   const [counterData, setCounterData]           = useState({ valor: '', fatia: '', mensagem: '' });
-
-  const getToken = () => localStorage.getItem('token');
 
   useEffect(() => {
     const fetchTudo = async () => {
@@ -60,6 +60,8 @@ function Propostas() {
               prpIdeiaId: p.PrpIdeiaId  ?? p.prpIdeiaId,
               usuarioId:  p.PrpUsuarioId ?? p.prpUsuarioId,
               prpStatus:  p.PrpStatus   ?? p.prpStatus,
+              investidorPlanoCodigo: p.InvestidorPlanoCodigo ?? p.investidorPlanoCodigo,
+              investidorPlanoNome: p.InvestidorPlanoNome ?? p.investidorPlanoNome,
               infos,
             };
           });
@@ -136,13 +138,46 @@ function Propostas() {
         ));
       } else {
         let msg = 'Erro ao processar.';
-        try { const err = await res.json(); msg = err.message ?? err.title ?? msg; } catch {}
+        const err = await res.json().catch(() => ({}));
+        msg = err.message ?? err.title ?? msg;
         toast.error(msg, { id: toastId });
       }
     } catch {
       toast.error('Erro de conexão.', { id: toastId });
     } finally {
       setSendingAction(false);
+    }
+  };
+
+  const handleStartChat = async (proposta) => {
+    const token = getToken();
+    if (!token) {
+      toast.error('Faça login para conversar com o investidor.');
+      return;
+    }
+
+    try {
+      const response = await apiRequest('/api/chat/mensagens', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          paraUsuarioId: Number(proposta.usuarioId),
+          ideiaId: Number(proposta.prpIdeiaId),
+          texto: 'Olá! Sua proposta foi aceita. Podemos alinhar os próximos passos?',
+        }),
+      });
+
+      if (response.ok) {
+        navigate('/chat');
+      } else {
+        const err = await response.json().catch(() => ({}));
+        toast.error(err.message ?? err.title ?? 'Erro ao iniciar conversa.');
+      }
+    } catch {
+      toast.error('Erro de conexão.');
     }
   };
 
@@ -157,7 +192,7 @@ function Propostas() {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        aceiteId: 3,
+        aceiteId: 4,
         retorno: counterData.mensagem,
       }),
     });
@@ -177,7 +212,8 @@ function Propostas() {
       }, 2500);
     } else {
       let msg = 'Erro ao enviar contraproposta.';
-      try { const err = await res.json(); msg = err.message ?? err.title ?? msg; } catch {}
+      const err = await res.json().catch(() => ({}));
+      msg = err.message ?? err.title ?? msg;
       toast.error(msg, { id: toastId });
     }
   } catch {
@@ -196,9 +232,12 @@ function Propostas() {
   const getStatusInfo = (proposta) => {
     const ultimo     = proposta.infos?.[proposta.infos.length - 1] ?? {};
     const aceiteNome = (ultimo.aceiteNome ?? '').toLowerCase();
+    
     if (aceiteNome.includes('aceit'))  return { label: 'Aceita',    cls: styles.statusAceita,   icon: <Check size={12} />, isPendente: false };
     if (aceiteNome.includes('recus'))  return { label: 'Recusada',  cls: styles.statusRecusada, icon: <X size={12} />,     isPendente: false };
     if (aceiteNome.includes('encerr')) return { label: 'Encerrada', cls: styles.statusRecusada, icon: <X size={12} />,     isPendente: false };
+    if (aceiteNome.includes('contra')) return { label: 'Contraproposta enviada', cls: styles.statusPendente, icon: <RefreshCcw size={12} />, isPendente: false };
+    
     // "pendente" ou qualquer outro valor = pendente
     return { label: 'Pendente', cls: styles.statusPendente, icon: <Clock size={12} />, isPendente: true };
   };
@@ -249,7 +288,7 @@ function Propostas() {
               const status  = getStatusInfo(p);
 
               return (
-                <motion.div
+                <MotionDiv
                   key={p.prpId}
                   className={styles.propostaCard}
                   initial={{ opacity: 0, y: 20 }}
@@ -259,7 +298,9 @@ function Propostas() {
                     <div className={styles.investidorInfo}>
                       <div className={styles.avatar}><User size={20} /></div>
                       <div>
-                        <span className={styles.investidorLabel}>Investidor</span>
+                      <span className={styles.investidorLabel}>
+                        Investidor{p.investidorPlanoCodigo === 'elite' ? ' • Elite' : ''}
+                      </span>
                         <strong className={styles.investidorId}>ID #{p.usuarioId}</strong>
                       </div>
                     </div>
@@ -299,14 +340,20 @@ function Propostas() {
                     )}
                   </div>
 
-                  {status.isPendente && (
+                  {status.isPendente ? (
                     <div className={styles.cardActions}>
                       <button className={styles.btnAccept}  onClick={() => handleAction(p, 'accept')}  disabled={sendingAction}><Check size={15} /> Aceitar</button>
                       <button className={styles.btnCounter} onClick={() => handleAction(p, 'counter')} disabled={sendingAction}><RefreshCcw size={15} /> Contraproposta</button>
                       <button className={styles.btnReject}  onClick={() => handleAction(p, 'reject')}  disabled={sendingAction}><X size={15} /> Recusar</button>
                     </div>
-                  )}
-                </motion.div>
+                  ) : ((ultimo.aceiteNome ?? '').toLowerCase().includes('aceit') ? (
+                    <div className={styles.cardActions}>
+                      <button className={styles.btnCounter} onClick={() => handleStartChat(p)} disabled={sendingAction}>
+                        <MessageSquare size={15} /> Conversar
+                      </button>
+                    </div>
+                  ) : null)}
+                </MotionDiv>
               );
             })}
           </div>
@@ -316,9 +363,9 @@ function Propostas() {
       {/* Modal de Contraproposta */}
       <AnimatePresence>
         {showCounterModal && (
-          <motion.div className={styles.modalOverlay} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+          <MotionDiv className={styles.modalOverlay} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             onClick={(e) => e.target === e.currentTarget && setShowCounterModal(false)}>
-            <motion.div className={styles.modalContent} initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}>
+            <MotionDiv className={styles.modalContent} initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}>
               <button className={styles.closeModal} onClick={() => setShowCounterModal(false)}><X size={18} /></button>
 
               {counterSent ? (
@@ -355,8 +402,8 @@ function Propostas() {
                   </form>
                 </>
               )}
-            </motion.div>
-          </motion.div>
+            </MotionDiv>
+          </MotionDiv>
         )}
       </AnimatePresence>
     </div>

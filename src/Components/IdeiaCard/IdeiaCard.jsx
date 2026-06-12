@@ -18,6 +18,8 @@ function IdeiaCard({ ideia, variant = 'default' }) {
   const id        = ideia.idaId;
   const nome      = ideia.idaNome;
   const categoria = ideia.categoriaNome;
+  const estagio   = ideia.estagioNome;
+  const regiao    = ideia.regiao;
   const statusId  = ideia.idaStatusId;
   const statusNome = ideia.statusNome;
 
@@ -25,6 +27,7 @@ function IdeiaCard({ ideia, variant = 'default' }) {
   const descricao = info.idaInfoDescricao;
   const imagem    = info.idaInfoImagem;
   const fatia     = info.idaInfoFatia;
+  const valorCaptacao = info.idaInfoValorCaptacao;
 
   const isAtivo =
     statusId === 1 ||
@@ -92,16 +95,26 @@ function IdeiaCard({ ideia, variant = 'default' }) {
         </div>
 
         {categoria && (
-          <span className={styles.equitySimple}>{categoria}</span>
+          <div className={styles.metaRow}>
+            <span className={styles.equitySimple}>{categoria}</span>
+            {estagio && <span className={styles.dot}>•</span>}
+            {estagio && <span className={styles.stageTag}>{estagio}</span>}
+          </div>
         )}
 
         <p className={styles.description}>
           {descricao
-            ? descricao
+            ? (descricao.length > 100 ? `${descricao.substring(0, 100)}...` : descricao)
             : variant === 'owner'
             ? 'Gerencie seu projeto e acompanhe o interesse de investidores.'
-            : 'Um pitch resumido sobre a inovação e o mercado para engajar o investidor.'}
+            : 'Explore este projeto para saber mais sobre a proposta de inovação e impacto.'}
         </p>
+
+        {regiao && (
+          <div className={styles.location}>
+             <span>📍 {regiao}</span>
+          </div>
+        )}
 
         {fatia != null && fatia > 0 && variant !== 'dashboard' && (
           <div className={styles.equityInfo}>
@@ -112,6 +125,14 @@ function IdeiaCard({ ideia, variant = 'default' }) {
 
         {/* Ações */}
         <div className={styles.actionArea}>
+          {valorCaptacao > 0 && (
+            <div className={styles.funding}>
+              <span className={styles.fundingLabel}>Captação:</span>
+              <span className={styles.fundingValue}>
+                {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valorCaptacao)}
+              </span>
+            </div>
+          )}
           {variant === 'owner' ? (
             <>
               <button className={styles.btnPrimary} onClick={irParaIdeia}>
@@ -126,7 +147,7 @@ function IdeiaCard({ ideia, variant = 'default' }) {
           ) : (
             <button className={styles.cardButton} onClick={irParaIdeia}>
               <Eye size={16} />
-              Ver Pitch
+              Explorar
             </button>
           )}
         </div>
